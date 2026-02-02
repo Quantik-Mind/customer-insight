@@ -1,0 +1,38 @@
+name: Quantik Mind – Customer Insight
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  decision-intelligence:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Call Quantik Mind – Functional Selection
+        env:
+          API_URL: ${{ secrets.QUANTIK_API_URL }}
+          TOKEN: ${{ secrets.QUANTIK_API_TOKEN }}
+          PROJECT_ID: ${{ secrets.QUANTIK_PROJECT_ID }}
+        run: |
+          echo "Calling Quantik Mind Functional Selection..."
+
+          curl -s -X POST \
+            "$API_URL/functional/select?project_id=$PROJECT_ID" \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Content-Type: application/json" \
+            -o response.json
+
+          echo "Response saved to response.json"
+
+      - name: Show Selection Summary
+        run: |
+          echo "===== Quantik Mind – Selection Summary ====="
+          jq '.counts' response.json
+          echo ""
+          echo "===== Reduction Percentage ====="
+          jq '.reduction_percentage' response.json
