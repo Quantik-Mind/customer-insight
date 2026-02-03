@@ -77,7 +77,7 @@ jobs:
           echo ""
 
           curl -sS -X GET \
-            "$API_URL/functional/$RUN_ID/decision-insight" \
+            "$API_URL/functional/runs/$RUN_ID/decision-insight" \
             -H "Authorization: Bearer $TOKEN" \
             -H "Accept: application/json" \
             -o insight.json
