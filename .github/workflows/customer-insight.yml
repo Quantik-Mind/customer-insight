@@ -2,7 +2,7 @@ name: Quantik Mind – Customer Insight
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   workflow_dispatch:
 
 jobs:
@@ -29,10 +29,35 @@ jobs:
 
           echo "Response saved to response.json"
 
-      - name: Show Selection Summary
+      - name: Quantik Mind – Decision Intelligence Summary
         run: |
-          echo "===== Quantik Mind – Selection Summary ====="
-          jq '.counts' response.json
           echo ""
-          echo "===== Reduction Percentage ====="
-          jq '.reduction_percentage' response.json
+          echo "============================================"
+          echo "🧠 Quantik Mind – Functional Decision Summary"
+          echo "============================================"
+          echo ""
+
+          TOTAL=$(jq '.counts.total' response.json)
+          SELECTED=$(jq '.counts.selected' response.json)
+          REDUCTION=$(jq '.reduction_percentage' response.json)
+          TAU=$(jq '.tau' response.json)
+
+          echo "📊 Test Selection"
+          echo "--------------------------------------------"
+          echo "• Total tests     : $TOTAL"
+          echo "• Selected tests  : $SELECTED"
+          echo "• Reduction       : ${REDUCTION}%"
+          echo ""
+
+          echo "🧬 Quantum Signal"
+          echo "--------------------------------------------"
+          echo "• Decision Tau    : $TAU"
+          echo ""
+
+          echo "🧠 Commit Awareness"
+          echo "--------------------------------------------"
+          jq '.commit_consideration' response.json
+
+          echo ""
+          echo "✅ Quantik Mind decision completed successfully"
+          echo ""
