@@ -2,24 +2,34 @@ name: Quantik Mind – Customer Insight
 
 on:
   push:
-    branches: ["main"]
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
   decision-intelligence:
+    name: Quantik Mind – Decision Intelligence
     runs-on: ubuntu-latest
 
     steps:
+      # ------------------------------------------------------------
+      # Checkout
+      # ------------------------------------------------------------
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # ------------------------------------------------------------
+      # Call Quantik Mind API
+      # ------------------------------------------------------------
       - name: Call Quantik Mind – Functional Selection
         env:
           API_URL: ${{ secrets.QUANTIK_API_URL }}
           TOKEN: ${{ secrets.QUANTIK_API_TOKEN }}
           PROJECT_ID: ${{ secrets.QUANTIK_PROJECT_ID }}
         run: |
-          echo "Calling Quantik Mind Functional Selection..."
+          echo ""
+          echo "🚀 Calling Quantik Mind Functional Selection"
+          echo "--------------------------------------------"
 
           curl -s -X POST \
             "$API_URL/functional/select?project_id=$PROJECT_ID" \
@@ -27,8 +37,12 @@ jobs:
             -H "Content-Type: application/json" \
             -o response.json
 
-          echo "Response saved to response.json"
+          echo "✅ Response saved to response.json"
+          echo ""
 
+      # ------------------------------------------------------------
+      # Decision Intelligence Summary
+      # ------------------------------------------------------------
       - name: Quantik Mind – Decision Intelligence Summary
         run: |
           echo ""
@@ -37,10 +51,10 @@ jobs:
           echo "============================================"
           echo ""
 
-          TOTAL=$(jq '.counts.total' response.json)
-          SELECTED=$(jq '.counts.selected' response.json)
-          REDUCTION=$(jq '.reduction_percentage' response.json)
-          TAU=$(jq '.tau' response.json)
+          TOTAL=$(jq -r '.counts.total // "N/A"' response.json)
+          SELECTED=$(jq -r '.counts.selected // "N/A"' response.json)
+          REDUCTION=$(jq -r '.reduction_percentage // "N/A"' response.json)
+          TAU=$(jq -r '.tau // "N/A"' response.json)
 
           echo "📊 Test Selection"
           echo "--------------------------------------------"
@@ -56,7 +70,7 @@ jobs:
 
           echo "🧠 Commit Awareness"
           echo "--------------------------------------------"
-          jq '.commit_consideration' response.json
+          jq '.commit_consideration // {}' response.json
 
           echo ""
           echo "✅ Quantik Mind decision completed successfully"
