@@ -73,5 +73,5 @@
             jq '.commit_consideration // {}' response.json
   
             echo ""
-          echo "✅ Quantik Mind decision completed successfully"
-          echo ""
+            echo "✅ Quantik Mind decision completed successfully"
+            echo ""
