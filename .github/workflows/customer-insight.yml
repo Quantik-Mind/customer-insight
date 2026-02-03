@@ -31,8 +31,8 @@
             echo "TOKEN set: ${TOKEN:+YES}"
             echo "PROJECT_ID set: ${PROJECT_ID:+YES}"
         
-            curl -s -X POST \
-              "$API_URL/functional/select?project_id=$PROJECT_ID" \
+            curl -s -X GET \
+              "$API_URL/functional/select?project_id=$PROJECT_ID&lookback_commits_hours=24" \
               -H "Authorization: Bearer $TOKEN" \
               -H "Content-Type: application/json" \
               -o response.json
