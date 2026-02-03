@@ -31,7 +31,7 @@ jobs:
 
           echo ""
           echo "============================================"
-          echo "🧠 Quantik Mind – Functional Decision"
+          echo "🧠 Quantik Mind – Test Selection Intelligence"
           echo "============================================"
           echo ""
 
@@ -45,14 +45,14 @@ jobs:
 
           RUN_ID=$(jq -r '.run_id' select.json)
 
-          echo "📊 Test Selection"
+          echo "🎯 Test Selection Results"
           echo "--------------------------------------------"
           echo "• Total tests     : $(jq -r '.counts.total' select.json)"
           echo "• Selected tests  : $(jq -r '.counts.selected' select.json)"
           echo "• Reduction       : $(jq -r '.reduction_percentage' select.json)%"
           echo ""
 
-          echo "🧠 Commit Awareness"
+          echo "📦 Commit Awareness"
           echo "--------------------------------------------"
           echo "• Enabled         : $(jq -r '.commit_consideration.enabled' select.json)"
           echo "• Affected tests  : $(jq -r '.commit_consideration.affected_tests' select.json)"
@@ -91,14 +91,14 @@ jobs:
           echo "• Uncertainty     : $(jq -r '.quantum.distribution.uncertainty' insight.json)"
           echo ""
 
-          echo "💾 Risk Coverage"
+          echo "🛡️ Risk Coverage"
           echo "--------------------------------------------"
           echo "• Risk Coverage   : $(jq -r '.risk.coverage_percentage' insight.json)%"
           echo "• Risk Efficiency : $(jq -r '.risk.efficiency' insight.json)x"
           echo "• Top-25% Risk    : $(jq -r '.risk.top25_share' insight.json)%"
           echo ""
 
-          echo "🌱 Always-Green"
+          echo "🟢 Always-Green"
           echo "--------------------------------------------"
           echo "• Avoided tests   : $(jq -r '.always_green.avoided' insight.json)"
           echo ""
