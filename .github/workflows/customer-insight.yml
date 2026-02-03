@@ -18,74 +18,46 @@
         - name: Checkout repository
           uses: actions/checkout@v4
   
-        # ------------------------------------------------------------
-        # Call Quantik Mind API
-        # ------------------------------------------------------------
-        - name: Call Quantik Mind – Functional Selection
+        - name: Call Quantik Mind – Functional Selection (debug)
           env:
             API_URL: ${{ secrets.QUANTIK_API_URL }}
             TOKEN: ${{ secrets.QUANTIK_API_TOKEN }}
             PROJECT_ID: ${{ secrets.QUANTIK_PROJECT_ID }}
           run: |
-            echo "API_URL set: ${API_URL:+YES}"
-            echo "TOKEN set: ${TOKEN:+YES}"
-            echo "PROJECT_ID set: ${PROJECT_ID:+YES}"
+            set +e   # <-- IMPORTANTISSIMO: non uscire subito
         
-            curl -s -X GET \
-              "$API_URL/functional/select?project_id=$PROJECT_ID&lookback_commits_hours=24" \
+            URL="$API_URL/functional/select?project_id=$PROJECT_ID&lookback_commits_hours=24"
+        
+            echo "Calling URL:"
+            echo "$URL"
+            echo ""
+        
+            HTTP_CODE=$(curl -sS -L \
               -H "Authorization: Bearer $TOKEN" \
               -H "Content-Type: application/json" \
-              -o response.json
-    
-              echo "✅ Response saved to response.json"
-              echo ""
-
-        # ------------------------------------------------------------
-        # Decision Intelligence Summary
-        # ------------------------------------------------------------
-        - name: Quantik Mind – Decision Intelligence Summary
-          run: |
-            echo ""
+              -o response.json \
+              -w "%{http_code}" \
+              "$URL")
+        
             echo ""
             echo "============================================"
-            echo "🧠 Quantik Mind – Functional Decision Summary"
+            echo "HTTP STATUS: $HTTP_CODE"
             echo "============================================"
             echo ""
-            
-            # Validate JSON
-            if ! jq empty response.json; then
-              echo "❌ Invalid JSON response"
-              cat response.json
-              exit 1
+        
+            echo "🔍 RAW RESPONSE BODY"
+            echo "--------------------------------------------"
+            cat response.json || true
+            echo ""
+            echo "--------------------------------------------"
+            echo ""
+        
+            # prova jq solo per info, senza rompere il job
+            if jq empty response.json >/dev/null 2>&1; then
+              echo "✅ Response is valid JSON"
+            else
+              echo "⚠️ Response is NOT valid JSON"
             fi
-            
-            TOTAL=$(jq -r '.counts.total // "N/A"' response.json)
-            SELECTED=$(jq -r '.counts.selected // "N/A"' response.json)
-            REDUCTION=$(jq -r '.reduction_percentage // "N/A"' response.json)
-            TAU=$(jq -r '.tau // "N/A"' response.json)
-            
-            echo "📊 Test Selection"
-            echo "--------------------------------------------"
-            echo "• Total tests     : $TOTAL"
-            echo "• Selected tests  : $SELECTED"
-            echo "• Reduction       : ${REDUCTION}%"
+        
             echo ""
-            
-            echo "🧬 Quantum Signal"
-            echo "--------------------------------------------"
-            echo "• Decision Tau    : $TAU"
-            echo ""
-            
-            echo "🧠 Commit Awareness"
-            echo "--------------------------------------------"
-            jq '.commit_consideration // {}' response.json
-            
-            echo ""
-            echo "✅ Quantik Mind decision completed successfully"
-            echo ""
-
-            jq '.commit_consideration // {}' response.json
-  
-            echo ""
-            echo "✅ Quantik Mind decision completed successfully"
-            echo ""
+            echo "End of response inspection"
