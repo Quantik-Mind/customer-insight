@@ -21,6 +21,11 @@ jobs:
       # ------------------------------------------------------------
       # Call Quantik Mind API
       # ------------------------------------------------------------
+      - name: Debug secrets (safe)
+        run: |
+          echo "PROJECT_ID is set: ${PROJECT_ID:+YES}"
+          echo "API_URL is set: ${API_URL:+YES}"
+          echo "TOKEN is set: ${TOKEN:+YES}"
       - name: Call Quantik Mind – Functional Selection
         env:
           API_URL: ${{ secrets.QUANTIK_API_URL }}
