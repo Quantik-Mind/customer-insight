@@ -10,7 +10,7 @@ jobs:
   decision-intelligence:
     name: Quantik Mind – Decision Intelligence
     runs-on: ubuntu-latest
-    
+
     steps:
       # ------------------------------------------------------------
       # Checkout
@@ -19,7 +19,7 @@ jobs:
         uses: actions/checkout@v4
 
       # ------------------------------------------------------------
-      # Call Quantik Mind API
+      # Functional Selection
       # ------------------------------------------------------------
       - name: Call Quantik Mind – Functional Selection
         env:
@@ -27,115 +27,94 @@ jobs:
           TOKEN: ${{ secrets.QUANTIK_API_TOKEN }}
           PROJECT_ID: ${{ secrets.QUANTIK_PROJECT_ID }}
         run: |
-          set +e  # Don't exit on error
-          
-          echo "🔍 Calling Quantik Mind API..."
-          echo "URL: $API_URL/functional/select"
-          echo "Project: $PROJECT_ID"
+          set -e
+
           echo ""
-          
-          # ✅ GET request con tutti gli header necessari
-          HTTP_CODE=$(curl -sS -L -X GET \
-            "$API_URL/functional/select?project_id=$PROJECT_ID&lookback_commits_hours=24" \
-            -H "Authorization: Bearer $TOKEN" \
-            -H "Content-Type: application/json" \
-            -H "Accept: application/json" \
-            -o response.json \
-            -w "%{http_code}")
-          
           echo "============================================"
-          echo "📊 HTTP Status: $HTTP_CODE"
+          echo "🧠 Quantik Mind – Functional Decision"
           echo "============================================"
-          echo ""
-          
-          # Verifica status code
-          if [ "$HTTP_CODE" = "200" ]; then
-            echo "✅ API call successful"
-          else
-            echo "❌ API call failed with status $HTTP_CODE"
-            echo ""
-            echo "Response body:"
-            cat response.json 2>/dev/null || echo "(empty response)"
-            exit 1
-          fi
-          
-          # Verifica JSON valido
-          if jq empty response.json >/dev/null 2>&1; then
-            echo "✅ Response is valid JSON"
-          else
-            echo "⚠️ Response is NOT valid JSON"
-            cat response.json
-            exit 1
-          fi
-          
           echo ""
 
-      # ------------------------------------------------------------
-      # Decision Intelligence Summary
-      # ------------------------------------------------------------
-      - name: Quantik Mind – Decision Intelligence Summary
-        if: success()  # ✅ Esegui solo se la chiamata API ha successo
-        run: |
-          echo ""
-          echo "============================================"
-          echo "🧠 Quantik Mind – Functional Decision Summary"
-          echo "============================================"
-          echo ""
-          
-          TOTAL=$(jq -r '.counts.total // "N/A"' response.json)
-          SELECTED=$(jq -r '.counts.selected // "N/A"' response.json)
-          REDUCTION=$(jq -r '.reduction_percentage // "N/A"' response.json)
-          TAU=$(jq -r '.tau // "N/A"' response.json)
-          
+          curl -sS -X GET \
+            "$API_URL/functional/select?project_id=$PROJECT_ID&lookback_commits_hours=24" \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Accept: application/json" \
+            -o select.json
+
+          jq empty select.json
+
+          RUN_ID=$(jq -r '.run_id' select.json)
+
           echo "📊 Test Selection"
           echo "--------------------------------------------"
-          echo "• Total tests     : $TOTAL"
-          echo "• Selected tests  : $SELECTED"
-          echo "• Reduction       : ${REDUCTION}%"
+          echo "• Total tests     : $(jq -r '.counts.total' select.json)"
+          echo "• Selected tests  : $(jq -r '.counts.selected' select.json)"
+          echo "• Reduction       : $(jq -r '.reduction_percentage' select.json)%"
           echo ""
-          
-          echo "🧬 Quantum Distribution"
-          echo "--------------------------------------------"
-          echo "• Decision Tau    : $TAU"
-          
-          # ✅ Estrai quantum distribution
-          SUPER=$(jq -r '.impact_snapshot.quantum_distribution.superposition // 0' response.json)
-          ENT=$(jq -r '.impact_snapshot.quantum_distribution.entanglement // 0' response.json)
-          UNC=$(jq -r '.impact_snapshot.quantum_distribution.uncertainty // 0' response.json)
-          
-          echo "• Superposition   : $SUPER"
-          echo "• Entanglement    : $ENT"
-          echo "• Uncertainty     : $UNC"
-          echo ""
-          
+
           echo "🧠 Commit Awareness"
           echo "--------------------------------------------"
-          COMMIT_ENABLED=$(jq -r '.commit_consideration.enabled // false' response.json)
-          COMMIT_AFFECTED=$(jq -r '.commit_consideration.affected_tests // 0' response.json)
-          
-          echo "• Enabled         : $COMMIT_ENABLED"
-          echo "• Affected tests  : $COMMIT_AFFECTED"
+          echo "• Enabled         : $(jq -r '.commit_consideration.enabled' select.json)"
+          echo "• Affected tests  : $(jq -r '.commit_consideration.affected_tests' select.json)"
           echo ""
-          
+
+          echo "RUN_ID=$RUN_ID" >> $GITHUB_ENV
+
+      # ------------------------------------------------------------
+      # Decision Insight
+      # ------------------------------------------------------------
+      - name: Call Quantik Mind – Decision Insight
+        env:
+          API_URL: ${{ secrets.QUANTIK_API_URL }}
+          TOKEN: ${{ secrets.QUANTIK_API_TOKEN }}
+        run: |
+          set -e
+
+          echo ""
+          echo "============================================"
+          echo "📈 Quantik Mind – Decision Insight"
+          echo "============================================"
+          echo ""
+
+          curl -sS -X GET \
+            "$API_URL/runs/$RUN_ID/decision-insight" \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Accept: application/json" \
+            -o insight.json
+
+          jq empty insight.json
+
+          echo "🧬 Quantum Distribution"
+          echo "--------------------------------------------"
+          echo "• Superposition   : $(jq -r '.quantum.distribution.superposition' insight.json)"
+          echo "• Entanglement    : $(jq -r '.quantum.distribution.entanglement' insight.json)"
+          echo "• Uncertainty     : $(jq -r '.quantum.distribution.uncertainty' insight.json)"
+          echo ""
+
           echo "💾 Risk Coverage"
           echo "--------------------------------------------"
-          RISK_COV=$(jq -r '.impact_snapshot.kpis.risk_coverage // "N/A"' response.json)
-          RISK_EFF=$(jq -r '.impact_snapshot.kpis.risk_efficiency // "N/A"' response.json)
-          
-          echo "• Risk Coverage   : ${RISK_COV}%"
-          echo "• Risk Efficiency : ${RISK_EFF}x"
+          echo "• Risk Coverage   : $(jq -r '.risk.coverage_percentage' insight.json)%"
+          echo "• Risk Efficiency : $(jq -r '.risk.efficiency' insight.json)x"
+          echo "• Top-25% Risk    : $(jq -r '.risk.top25_share' insight.json)%"
           echo ""
-          
+
+          echo "🌱 Always-Green"
+          echo "--------------------------------------------"
+          echo "• Avoided tests   : $(jq -r '.always_green.avoided' insight.json)"
+          echo ""
+
           echo "✅ Quantik Mind decision completed successfully"
           echo ""
 
       # ------------------------------------------------------------
-      # Save Artifact (optional)
+      # Save Artifacts
       # ------------------------------------------------------------
-      - name: Upload Response Artifact
-        if: always()  # ✅ Salva sempre, anche in caso di errore
+      - name: Upload Decision Artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: quantik-selection-response
-          path: response.json
+          name: quantik-decision
+          path: |
+            select.json
+            insight.json
           retention-days: 30
