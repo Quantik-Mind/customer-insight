@@ -1,44 +1,44 @@
-name: Quantik Mind – Customer Insight
+  name: Quantik Mind – Customer Insight
+  
+  on:
+    push:
+      branches:
+        - main
+    workflow_dispatch:
+  
+  jobs:
+    decision-intelligence:
+      name: Quantik Mind – Decision Intelligence
+      runs-on: ubuntu-latest
 
-on:
-  push:
-    branches:
-      - main
-  workflow_dispatch:
-
-jobs:
-  decision-intelligence:
-    name: Quantik Mind – Decision Intelligence
-    runs-on: ubuntu-latest
-
-    steps:
-      # ------------------------------------------------------------
-      # Checkout
-      # ------------------------------------------------------------
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      # ------------------------------------------------------------
-      # Call Quantik Mind API
-      # ------------------------------------------------------------
-      - name: Call Quantik Mind – Functional Selection
-      env:
-        API_URL: ${{ secrets.QUANTIK_API_URL }}
-        TOKEN: ${{ secrets.QUANTIK_API_TOKEN }}
-        PROJECT_ID: ${{ secrets.QUANTIK_PROJECT_ID }}
-      run: |
-        echo "API_URL set: ${API_URL:+YES}"
-        echo "TOKEN set: ${TOKEN:+YES}"
-        echo "PROJECT_ID set: ${PROJECT_ID:+YES}"
+      steps:
+        # ------------------------------------------------------------
+        # Checkout
+        # ------------------------------------------------------------
+        - name: Checkout repository
+          uses: actions/checkout@v4
+  
+        # ------------------------------------------------------------
+        # Call Quantik Mind API
+        # ------------------------------------------------------------
+        - name: Call Quantik Mind – Functional Selection
+          env:
+            API_URL: ${{ secrets.QUANTIK_API_URL }}
+            TOKEN: ${{ secrets.QUANTIK_API_TOKEN }}
+            PROJECT_ID: ${{ secrets.QUANTIK_PROJECT_ID }}
+          run: |
+            echo "API_URL set: ${API_URL:+YES}"
+            echo "TOKEN set: ${TOKEN:+YES}"
+            echo "PROJECT_ID set: ${PROJECT_ID:+YES}"
+        
+            curl -s -X POST \
+              "$API_URL/functional/select?project_id=$PROJECT_ID" \
+              -H "Authorization: Bearer $TOKEN" \
+              -H "Content-Type: application/json" \
+              -o response.json
     
-        curl -s -X POST \
-          "$API_URL/functional/select?project_id=$PROJECT_ID" \
-          -H "Authorization: Bearer $TOKEN" \
-          -H "Content-Type: application/json" \
-          -o response.json
-
-          echo "✅ Response saved to response.json"
-          echo ""
+              echo "✅ Response saved to response.json"
+              echo ""
 
         # ------------------------------------------------------------
         # Decision Intelligence Summary
