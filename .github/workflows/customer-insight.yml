@@ -21,26 +21,21 @@ jobs:
       # ------------------------------------------------------------
       # Call Quantik Mind API
       # ------------------------------------------------------------
-      - name: Debug secrets (safe)
-        run: |
-          echo "PROJECT_ID is set: ${PROJECT_ID:+YES}"
-          echo "API_URL is set: ${API_URL:+YES}"
-          echo "TOKEN is set: ${TOKEN:+YES}"
       - name: Call Quantik Mind – Functional Selection
-        env:
-          API_URL: ${{ secrets.QUANTIK_API_URL }}
-          TOKEN: ${{ secrets.QUANTIK_API_TOKEN }}
-          PROJECT_ID: ${{ secrets.QUANTIK_PROJECT_ID }}
-        run: |
-          echo ""
-          echo "🚀 Calling Quantik Mind Functional Selection"
-          echo "--------------------------------------------"
-
-          curl -s -X POST \
-            "$API_URL/functional/select?project_id=$PROJECT_ID" \
-            -H "Authorization: Bearer $TOKEN" \
-            -H "Content-Type: application/json" \
-            -o response.json
+      env:
+        API_URL: ${{ secrets.QUANTIK_API_URL }}
+        TOKEN: ${{ secrets.QUANTIK_API_TOKEN }}
+        PROJECT_ID: ${{ secrets.QUANTIK_PROJECT_ID }}
+      run: |
+        echo "API_URL set: ${API_URL:+YES}"
+        echo "TOKEN set: ${TOKEN:+YES}"
+        echo "PROJECT_ID set: ${PROJECT_ID:+YES}"
+    
+        curl -s -X POST \
+          "$API_URL/functional/select?project_id=$PROJECT_ID" \
+          -H "Authorization: Bearer $TOKEN" \
+          -H "Content-Type: application/json" \
+          -o response.json
 
           echo "✅ Response saved to response.json"
           echo ""
