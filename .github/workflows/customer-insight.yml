@@ -52,6 +52,12 @@ jobs:
           echo "• Reduction       : $(jq -r '.reduction_percentage' select.json)%"
           echo ""
 
+          echo ""
+          echo "✅ Selected Tests"
+          echo "--------------------------------------------"
+          jq -r '.selected[] | .test_name' select.json | nl -w2 -s'. '
+          echo "
+            
           echo "📦 Commit Awareness"
           echo "--------------------------------------------"
           echo "• Enabled         : $(jq -r '.commit_consideration.enabled' select.json)"
