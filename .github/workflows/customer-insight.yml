@@ -56,7 +56,7 @@ jobs:
           echo "✅ Selected Tests"
           echo "--------------------------------------------"
           jq -r '.selected[] | .test_name' select.json | nl -w2 -s'. '
-          echo "
+          echo ""
             
           echo "📦 Commit Awareness"
           echo "--------------------------------------------"
