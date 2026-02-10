@@ -137,4 +137,5 @@ jobs:
           path: |
             select.json
             insight.json
+            selected_tests.txt
           retention-days: 30
