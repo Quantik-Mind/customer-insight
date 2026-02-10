@@ -53,11 +53,20 @@ jobs:
           echo ""
 
           echo ""
-          echo "✅ Selected Tests"
+          echo "✅ Selected Tests (ready for execution)"
           echo "--------------------------------------------"
           jq -r '.selected[] | .test_name' select.json | tee selected_tests.txt
           echo ""
-            
+          echo "💾 Test list saved to: selected_tests.txt"
+          echo ""
+          
+          # VERIFICA IMMEDIATA
+          echo "DEBUG - File exists?"
+          ls -la selected_tests.txt
+          echo ""
+          echo "DEBUG - File content:"
+          cat selected_tests.txt
+                      
           echo "📦 Commit Awareness"
           echo "--------------------------------------------"
           echo "• Enabled         : $(jq -r '.commit_consideration.enabled' select.json)"
