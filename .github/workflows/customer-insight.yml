@@ -60,13 +60,6 @@ jobs:
           echo "💾 Test list saved to: selected_tests.txt"
           echo ""
           
-          # VERIFICA IMMEDIATA
-          echo "DEBUG - File exists?"
-          ls -la selected_tests.txt
-          echo ""
-          echo "DEBUG - File content:"
-          cat selected_tests.txt
-                      
           echo "📦 Commit Awareness"
           echo "--------------------------------------------"
           echo "• Enabled         : $(jq -r '.commit_consideration.enabled' select.json)"
@@ -124,6 +117,18 @@ jobs:
       # ------------------------------------------------------------
       # Save Artifacts
       # ------------------------------------------------------------
+      - name: Verify files before upload
+        run: |
+          echo "Files in workspace:"
+          ls -la *.json *.txt
+          echo ""
+          echo "Checking selected_tests.txt:"
+          if [ -f selected_tests.txt ]; then
+            echo "✅ File exists ($(wc -l < selected_tests.txt) lines)"
+          else
+            echo "❌ File NOT found!"
+          fi
+          
       - name: Upload Decision Artifacts
         if: always()
         uses: actions/upload-artifact@v4
