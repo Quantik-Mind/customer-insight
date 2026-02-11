@@ -1,0 +1,41 @@
+stages:
+  - quantik-mind
+
+quantik_decision:
+  stage: quantik-mind
+  image: ubuntu:latest
+
+  before_script:
+    - apt-get update && apt-get install -y curl jq
+
+  script:
+    - echo "🧠 Quantik Mind – Functional Selection"
+
+    - |
+      curl -sS -X GET \
+      "$API_URL/functional/select?project_id=$PROJECT_ID&lookback_commits_hours=24" \
+      -H "Authorization: Bearer $TOKEN" \
+      -H "Accept: application/json" \
+      -o select.json
+
+    - jq empty select.json
+    - export RUN_ID=$(jq -r '.run_id' select.json)
+    - jq -r '.selected[] | .test_name' select.json > selected_tests.txt
+
+    - echo "📈 Decision Insight"
+
+    - |
+      curl -sS -X GET \
+      "$API_URL/functional/runs/$RUN_ID/decision-insight" \
+      -H "Authorization: Bearer $TOKEN" \
+      -H "Accept: application/json" \
+      -o insight.json
+
+    - jq empty insight.json
+
+  artifacts:
+    paths:
+      - select.json
+      - insight.json
+      - selected_tests.txt
+    expire_in: 30 days
