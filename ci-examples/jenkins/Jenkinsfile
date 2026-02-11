@@ -1,0 +1,59 @@
+pipeline {
+    agent any
+
+    environment {
+        API_URL    = credentials('QUANTIK_API_URL')
+        TOKEN      = credentials('QUANTIK_API_TOKEN')
+        PROJECT_ID = credentials('QUANTIK_PROJECT_ID')
+    }
+
+    stages {
+
+        stage('Quantik Mind – Functional Selection') {
+            steps {
+                sh '''
+                set -e
+
+                echo "🧠 Quantik Mind – Test Selection"
+
+                curl -sS -X GET \
+                  "$API_URL/functional/select?project_id=$PROJECT_ID&lookback_commits_hours=24" \
+                  -H "Authorization: Bearer $TOKEN" \
+                  -H "Accept: application/json" \
+                  -o select.json
+
+                jq empty select.json
+
+                RUN_ID=$(jq -r '.run_id' select.json)
+                echo "RUN_ID=$RUN_ID" > run.env
+
+                jq -r '.selected[] | .test_name' select.json > selected_tests.txt
+                '''
+            }
+        }
+
+        stage('Quantik Mind – Decision Insight') {
+            steps {
+                sh '''
+                source run.env
+
+                echo "📈 Quantik Mind – Decision Insight"
+                
+                curl -sS -X GET \
+                  "$API_URL/functional/runs/$RUN_ID/decision-insight" \
+                  -H "Authorization: Bearer $TOKEN" \
+                  -H "Accept: application/json" \
+                  -o insight.json
+
+                jq empty insight.json
+                '''
+            }
+        }
+    }
+
+    post {
+        always {
+            archiveArtifacts artifacts: '*.json, *.txt'
+        }
+    }
+}
