@@ -1,0 +1,69 @@
+pipeline:
+  name: QuantikMindDecision
+  identifier: quantik_mind_decision
+  projectIdentifier: default
+  orgIdentifier: default
+
+  stages:
+    - stage:
+        name: QuantikMind
+        identifier: quantik_stage
+        type: CI
+        spec:
+          cloneCodebase: true
+
+          execution:
+            steps:
+              - step:
+                  type: Run
+                  name: Install Dependencies
+                  identifier: install_deps
+                  spec:
+                    shell: Bash
+                    command: |
+                      apt-get update
+                      apt-get install -y curl jq
+
+              - step:
+                  type: Run
+                  name: Functional Selection
+                  identifier: functional_selection
+                  spec:
+                    shell: Bash
+                    command: |
+                      set -e
+
+                      curl -sS -X GET \
+                        "$API_URL/functional/select?project_id=$PROJECT_ID&lookback_commits_hours=24" \
+                        -H "Authorization: Bearer $TOKEN" \
+                        -H "Accept: application/json" \
+                        -o select.json
+
+                      jq empty select.json
+
+                      RUN_ID=$(jq -r '.run_id' select.json)
+
+                      if [ "$RUN_ID" = "null" ] || [ -z "$RUN_ID" ]; then
+                        echo "RUN_ID missing"
+                        exit 1
+                      fi
+
+                      echo "export RUN_ID=$RUN_ID" >> $HARNESS_ENV_EXPORT
+                      jq -r '.selected[] | .test_name' select.json > selected_tests.txt
+
+              - step:
+                  type: Run
+                  name: Decision Insight
+                  identifier: decision_insight
+                  spec:
+                    shell: Bash
+                    command: |
+                      source $HARNESS_ENV_EXPORT
+
+                      curl -sS -X GET \
+                        "$API_URL/functional/runs/$RUN_ID/decision-insight" \
+                        -H "Authorization: Bearer $TOKEN" \
+                        -H "Accept: application/json" \
+                        -o insight.json
+
+                      jq empty insight.json
