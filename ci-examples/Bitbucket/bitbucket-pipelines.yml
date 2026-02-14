@@ -1,0 +1,56 @@
+image: atlassian/default-image:3
+
+pipelines:
+  branches:
+    main:
+      - step:
+          name: Quantik Mind – Decision Intelligence
+          caches:
+            - docker
+          script:
+            - apt-get update
+            - apt-get install -y curl jq
+            - set -e
+
+            - echo "🧠 Quantik Mind – Functional Selection"
+
+            - |
+              HTTP_CODE=$(curl -sS -w "%{http_code}" -o select.json \
+                -X GET \
+                "$API_URL/functional/select?project_id=$PROJECT_ID&lookback_commits_hours=24" \
+                -H "Authorization: Bearer $TOKEN" \
+                -H "Accept: application/json")
+
+              if [ "$HTTP_CODE" -ne 200 ]; then
+                echo "❌ API failed with $HTTP_CODE"
+                cat select.json
+                exit 1
+              fi
+
+            - jq empty select.json
+
+            - RUN_ID=$(jq -r '.run_id' select.json)
+
+            - |
+              if [ "$RUN_ID" = "null" ] || [ -z "$RUN_ID" ]; then
+                echo "❌ RUN_ID missing"
+                exit 1
+              fi
+
+            - jq -r '.selected[] | .test_name' select.json > selected_tests.txt
+
+            - echo "📈 Decision Insight"
+
+            - |
+              curl -sS -X GET \
+                "$API_URL/functional/runs/$RUN_ID/decision-insight" \
+                -H "Authorization: Bearer $TOKEN" \
+                -H "Accept: application/json" \
+                -o insight.json
+
+            - jq empty insight.json
+
+          artifacts:
+            - select.json
+            - insight.json
+            - selected_tests.txt
