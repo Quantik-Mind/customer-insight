@@ -1,0 +1,65 @@
+trigger:
+  branches:
+    include:
+      - main
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  API_URL: $(QUANTIK_API_URL)
+  TOKEN: $(QUANTIK_API_TOKEN)
+  PROJECT_ID: $(QUANTIK_PROJECT_ID)
+
+stages:
+- stage: QuantikMind
+  jobs:
+  - job: DecisionIntelligence
+    steps:
+
+    - script: |
+        sudo apt-get update
+        sudo apt-get install -y curl jq
+      displayName: Install dependencies
+
+    - script: |
+        set -e
+
+        echo "🧠 Quantik Mind – Functional Selection"
+
+        curl -sS -X GET \
+          "$API_URL/functional/select?project_id=$PROJECT_ID&lookback_commits_hours=24" \
+          -H "Authorization: Bearer $TOKEN" \
+          -H "Accept: application/json" \
+          -o select.json
+
+        jq empty select.json
+
+        RUN_ID=$(jq -r '.run_id' select.json)
+        echo "##vso[task.setvariable variable=RUN_ID]$RUN_ID"
+
+        jq -r '.selected[] | .test_name' select.json > selected_tests.txt
+      displayName: Functional Selection
+
+    - script: |
+        set -e
+
+        echo "📈 Quantik Mind – Decision Insight"
+
+        curl -sS -X GET \
+          "$API_URL/functional/runs/$(RUN_ID)/decision-insight" \
+          -H "Authorization: Bearer $TOKEN" \
+          -H "Accept: application/json" \
+          -o insight.json
+
+        jq empty insight.json
+      displayName: Decision Insight
+
+    - publish: select.json
+      artifact: quantik-select
+
+    - publish: insight.json
+      artifact: quantik-insight
+
+    - publish: selected_tests.txt
+      artifact: quantik-tests
