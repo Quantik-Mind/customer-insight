@@ -1,0 +1,57 @@
+version: 2.1
+
+jobs:
+  quantik-mind:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - checkout
+
+      - run:
+          name: Install dependencies
+          command: |
+            sudo apt-get update
+            sudo apt-get install -y curl jq
+
+      - run:
+          name: Functional Selection
+          command: |
+            set -e
+
+            curl -sS -X GET \
+              "$API_URL/functional/select?project_id=$PROJECT_ID&lookback_commits_hours=24" \
+              -H "Authorization: Bearer $TOKEN" \
+              -H "Accept: application/json" \
+              -o select.json
+
+            jq empty select.json
+
+            RUN_ID=$(jq -r '.run_id' select.json)
+            echo "export RUN_ID=$RUN_ID" >> $BASH_ENV
+
+            jq -r '.selected[] | .test_name' select.json > selected_tests.txt
+
+      - run:
+          name: Decision Insight
+          command: |
+            source $BASH_ENV
+
+            curl -sS -X GET \
+              "$API_URL/functional/runs/$RUN_ID/decision-insight" \
+              -H "Authorization: Bearer $TOKEN" \
+              -H "Accept: application/json" \
+              -o insight.json
+
+            jq empty insight.json
+
+      - persist_to_workspace:
+          root: .
+          paths:
+            - select.json
+            - insight.json
+            - selected_tests.txt
+
+workflows:
+  quantik:
+    jobs:
+      - quantik-mind
