@@ -66,7 +66,9 @@ jobs:
           echo ""
           echo "✅ Selected Tests (ready for execution)"
           echo "--------------------------------------------"
-          jq -r '.selected[] | .test_name' select.json | tee selected_tests.txt
+          
+          jq -r '.selected[] | .test_name' select.json > selected_tests.txt
+          
           echo ""
           echo "💾 Test list saved to: selected_tests.txt"
           echo ""
