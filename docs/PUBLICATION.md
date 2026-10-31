@@ -122,13 +122,17 @@ never dispatch its direct-API workflow during publication.
    The generator refuses invalid pins, unresolved tokens and overwrites. Verify
    that the remote commits really contain the accepted code; a well-formed SHA
    alone proves nothing. Run actionlint plus caller/callee contract checks, review
-   the generated literal `uses`/tooling/CLI pins and merge only under authorization.
+   the generated literal `uses`/tooling/CLI pins. Keep this publication PR
+   **unmerged until step 8's access, secrets and protected checkpoints are verified**;
+   source pins alone do not authorize enabling the caller.
    Do not create the application presentation commit or dispatch a demo here.
 8. Configure Banking runtime secrets/variables and OFF/ON GitHub gates through its
    owner under separate approval. Confirm approved branch, required reviewers,
    available plan features and any bypass policy. Exact names are below. The
-   default branch must contain the manual workflow. Prepare the approved
-   `demo/pipeline` branch without manufacturing an application change.
+   default branch must contain the manual workflow. Only after these prerequisites
+   pass, accept the generated-caller publication PR under separate authorization.
+   Then prepare the approved `demo/pipeline` branch without manufacturing an
+   application change. Do not dispatch or push a presentation change during setup.
 9. Read-only readiness: verify deployed contracts, project key scopes, existing
    project/library/ownership/inventory/provider, history entitlement and current
    controls through the CLI. No Quantik Mind UI, personal JWT or general settings
