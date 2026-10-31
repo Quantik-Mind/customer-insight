@@ -22,7 +22,8 @@ backend-validated frozen comparison reported baseline 103, four direct additions
 zero indirect additions/removals. These are fixture observations, not a live result
 promise. Complete exports used two selected pages, twelve explanation pages and
 nineteen mapping pages, with identities reconciled against persisted rows. Each
-run had one validated context anchor and fourteen mapping gaps, including skipped
+run had one validated context anchor and twenty-eight mapping gaps in the final
+published-source fixture range, including skipped
 test matches. API comparisons/classifications were used unchanged.
 
 Separate machine keys exercised real authorization: selection/results key writes
