@@ -47,6 +47,34 @@ never dispatch its direct-API workflow during publication.
    workflow's artifacts alone are not a numeric release-asset URL. Record the real
    wheel asset ID, SHA-256, lock hash and source SHA. Never publish a local
    uncommitted wheel as if its base commit contained these changes.
+
+   Exact Windows CMD example after approval (substitute the accepted SHA and the
+   successful packaging Actions run ID; stop if the destination/tag already exists):
+
+   ```cmd
+   set "PLATFORM_SHA=ACTUAL_ACCEPTED_PLATFORM_SHA"
+   set "PACKAGE_RUN_ID=SUCCESSFUL_PACKAGING_ACTIONS_RUN_ID"
+   gh run download %PACKAGE_RUN_ID% --repo Quantik-Mind/quantikmind-platform --name quantikmind-cli-python-package --dir C:\QMindDemo\release-b3
+   type C:\QMindDemo\release-b3\release-manifest.json
+   certutil -hashfile C:\QMindDemo\release-b3\quantikmind_cli-0.1.0b3-py3-none-any.whl SHA256
+   ```
+
+   Compare source SHA, wheel hash and lock hash with the approved build; perform
+   the clean installation checks in RUNBOOK.md. In GitHub Platform → Releases,
+   check that `cli-0.1.0b3` is unused, then draft a prerelease using a new tag
+   **cli-0.1.0b3** targeting the exact accepted Platform commit. Attach the verified
+   wheel, `release-manifest.json` and `requirements-ci.lock`, record the source SHA
+   in release notes, review and publish only under release authorization. This
+   explicit `cli-` tag avoids the separate `v*` automatic packaging/release trigger.
+   Do not replace assets after recording their integrity pins. Obtain real asset
+   IDs and immutable API URLs with:
+
+   ```cmd
+   gh api repos/Quantik-Mind/quantikmind-platform/releases/tags/cli-0.1.0b3 --jq ".assets[] | {name: .name, id: .id, url: .url}"
+   ```
+
+   Record the wheel's numeric API URL and verified SHA in the later Banking
+   variables; the CLI source pin remains the full accepted Platform commit.
 3. Release required Platform backend changes through the existing normal backend
    deployment process, separately authorized. GitHub → Platform Actions →
    **Deploy Production Release**, choose the accepted main ref; set

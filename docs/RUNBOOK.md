@@ -186,6 +186,8 @@ Offline regeneration never selects/evaluates:
 python -m demo.report --execution A --a C:\QMindDemo\A\execution\bundle --changes C:\QMindDemo\A\source-build\changes.json --build C:\QMindDemo\A\source-build\build.json --output C:\QMindDemo\A-regenerated
 ```
 
-The local disposable integrated reproduction is described in LOCAL-INTEGRATION.md.
+The current local disposable integrated reproduction is described in
+[LOCAL-INTEGRATION-B3.md](LOCAL-INTEGRATION-B3.md); LOCAL-INTEGRATION.md preserves
+the earlier baseline.
 Opening a report requires no API connection. Do not upload credential/config
 directories or distribute the broad working directory; use the packaged artifacts.
