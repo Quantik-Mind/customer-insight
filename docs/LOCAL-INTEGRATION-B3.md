@@ -40,7 +40,7 @@ queued (exit 7), then restored only after terminal completion. Known-run recover
 and full async B re-export did not submit a selection. Exactly four selection HTTP
 requests occurred in the completed rehearsal. Cloud Tasks transport is not validated.
 
-Affected validation also passed 263 CLI checks, 246 focused backend checks and 34
+Affected validation also passed 264 CLI checks, 247 focused backend checks and 35
 offline demo/provenance/report checks. Counts overlap historical runs; do not add
 them. Existing Click/Starlette deprecation warnings remain. Workflow caller/callee
 contracts and actionlint passed with the narrowly documented queue-key exception.
@@ -82,3 +82,9 @@ _tools\validation\Scripts\python.exe demo\tools\local_integration.py --verify-ex
 Hosted CI validates implementation with fixtures; it is not hosted live-provider
 acceptance. The operator alone will run the published Banking demo. See RUNBOOK.md
 for the complete UI-optional runtime and cancellation/concurrent-edit recovery.
+
+The final `publication-safe-cas-final` rehearsal also exercised actual CLI
+restoration before a prepared control request had arrived. A conditional no-op
+cancellation barrier advanced the revision; the deliberately delayed original
+request was rejected with 409. This adds no selection submission and prevents a
+late control write from landing after successful cleanup.

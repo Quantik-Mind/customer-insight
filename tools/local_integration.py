@@ -806,6 +806,71 @@ def main():
                 recovered_control.json()["selection_influence_enabled"]
                 == original["selection_influence_enabled"]
             )
+            # An actual CLI no-op barrier invalidates a deliberately late original PUT.
+            control_folder = output / execution_mode / "control-recovery"
+            control_folder.mkdir(parents=True)
+            pending_operation = str(uuid4())
+            base_control = recovered_control.json()
+            write(
+                control_folder / "state.json",
+                {
+                    "schema_version": 1,
+                    "project_id": PROJECT,
+                    "original": base_control,
+                    "operation_id": pending_operation,
+                    "restore_operation_id": str(uuid4()),
+                    "status": "prepared",
+                },
+            )
+            control_env = env.copy()
+            control_env.update(
+                QMIND_API_URL=f"http://127.0.0.1:{port}",
+                QMIND_API_KEY=key,
+                QMIND_INFLUENCE_API_KEY=influence_key,
+                USERPROFILE=str(control_folder / "home"),
+            )
+            executable = ROOT / "_tools/clean-cli/Scripts/qmind.exe"
+            command(
+                [
+                    executable,
+                    "init",
+                    "--project-id",
+                    PROJECT,
+                    "--framework",
+                    "pytest",
+                    "--non-interactive",
+                ],
+                cwd=control_folder,
+                env=control_env,
+                capture_output=True,
+                text=True,
+            )
+            cancellation = command(
+                [
+                    executable,
+                    "near-miss",
+                    "influence",
+                    "restore",
+                    "--state-file",
+                    control_folder / "state.json",
+                ],
+                cwd=control_folder,
+                env=control_env,
+                capture_output=True,
+                text=True,
+            )
+            write(control_folder / "result.json", json.loads(cancellation.stdout))
+            late = httpx.put(
+                influence_url,
+                params=scope,
+                headers=write_headers,
+                json={
+                    "enabled": not original["selection_influence_enabled"],
+                    "expected_revision": base_control["revision"],
+                    "operation_id": pending_operation,
+                },
+            )
+            assert late.status_code == 409
             write(
                 output / execution_mode / "control-authorization-cas.json",
                 {
@@ -813,6 +878,7 @@ def main():
                     "cross_project_denied": True,
                     "concurrent_same_revision_statuses": [200, 409],
                     "restored": True,
+                    "actual_cli_cancel_barrier_late_write_denied": True,
                 },
             )
             for influence in ("off", "on"):
