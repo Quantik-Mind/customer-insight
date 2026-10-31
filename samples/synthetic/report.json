@@ -220,6 +220,12 @@
     "A: Synthetic fixture only; not a live execution or acceptance result.",
     "B: Synthetic fixture only; not a live execution or acceptance result."
   ],
+  "normalized_metric_units": {
+    "latency": "seconds (p95)",
+    "error_rate": "ratio (0\u20131)",
+    "cpu": "ratio (0\u20131)",
+    "request_rate": "requests/second"
+  },
   "contribution": {
     "influence_enabled": true,
     "comparison_status": "complete",

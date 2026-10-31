@@ -30,6 +30,14 @@ COUNT_LABELS = {
     "removed": "Removals",
 }
 
+# Display the normalized backend rule contract, not raw provider-unit inference.
+NORMALIZED_METRIC_UNITS = {
+    "latency": "seconds (p95)",
+    "error_rate": "ratio (0–1)",
+    "cpu": "ratio (0–1)",
+    "request_rate": "requests/second",
+}
+
 
 def load(path):
     return json.loads(Path(path).read_text(encoding="utf-8"))
@@ -191,12 +199,13 @@ def model(a, b, changes, build, frontend=None, *, sample=False, execution=None):
         "attribution": "A/B are separate executions with changing observation times. Only B's backend-validated frozen influence-off comparison supplies causal attribution.",
         "runs": {},
         "limitations": [],
+        "normalized_metric_units": NORMALIZED_METRIC_UNITS,
     }
     entries = [("A", a, False), ("B", b, True)]
     if execution:
         entries = [entry for entry in entries if entry[0] == execution]
         result["attribution"] = (
-            "Execution A is complete independently; B has not been submitted or scheduled."
+            "This A execution does not submit or schedule B; its report is complete independently."
             if execution == "A"
             else "Attribution uses this B run's saved frozen comparison only."
         )
@@ -436,6 +445,10 @@ def render(result, output):
     for label, value in runs.items():
         summary = value["summary"]
         items = [
+            (
+                "Normalized backend rule units (when evidence is available)",
+                result["normalized_metric_units"],
+            ),
             ("This execution's image build provenance", value.get("build_provenance")),
             (
                 "Captured configuration and fingerprints",

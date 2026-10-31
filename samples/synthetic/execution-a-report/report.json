@@ -20,7 +20,7 @@
     "deployed": false
   },
   "boundary": "Tests were recommended, not executed. No deployment occurred. Banking library/workload are synthetic validation data. Image assembly does not establish startup or functional correctness. Test-count reduction is not measured time/cost savings or incident prevention.",
-  "attribution": "Execution A is complete independently; B has not been submitted or scheduled.",
+  "attribution": "This A execution does not submit or schedule B; its report is complete independently.",
   "runs": {
     "A": {
       "manifest": {
@@ -111,6 +111,12 @@
   "limitations": [
     "A: Synthetic fixture only; not a live execution or acceptance result."
   ],
+  "normalized_metric_units": {
+    "latency": "seconds (p95)",
+    "error_rate": "ratio (0\u20131)",
+    "cpu": "ratio (0\u20131)",
+    "request_rate": "requests/second"
+  },
   "contribution": {
     "influence_enabled": false,
     "comparison_status": "unavailable",

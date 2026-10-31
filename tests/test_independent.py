@@ -28,9 +28,10 @@ def test_a_is_complete_without_b_and_links_are_optional(tmp_path):
     assert set(result["runs"]) == {"A"}
     assert result["runs"]["A"]["manifest"]["complete"] is True
     assert result["runs"]["A"]["link"] is None
-    assert "B has not been submitted or scheduled" in result["attribution"]
+    assert "does not submit or schedule B" in result["attribution"]
     html = (tmp_path / "standalone/report.html").read_text()
     assert "Complete selected list" in html and "influence ON" not in html
+    assert "seconds (p95)" in html and "requests/second" in html
 
 
 def test_b_has_own_report_and_restoration_failure_is_prominent(tmp_path):

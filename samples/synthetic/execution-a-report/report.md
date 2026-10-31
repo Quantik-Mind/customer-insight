@@ -36,7 +36,7 @@ Backend outcome: **influence_disabled** · Comparison: **unavailable**
 
 Near-miss selection influence was disabled.
 
-Execution A is complete independently; B has not been submitted or scheduled.
+This A execution does not submit or schedule B; its report is complete independently.
 
 Zero direct additions is a valid result. Applied promotion and retention do not by themselves establish additional selection.
 
