@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "complete": true,
+  "sample": true,
+  "selected_count": 1,
+  "files": {
+    "changes.json": "de1f415098438931897bc8730e1d8c5c3330f291632fefc58fc5723ae1baafb3",
+    "focused-evidence.json": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "near-miss.json": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "observations.json": "bc52ff0537181deb0798f5c04b7e6f49803485d5325d7854d9c8501e42dea671",
+    "selected-tests.csv": "3cb1f0e511bdda27a59ff1cee39f089ef06c19b75a727faa749af3e02aae285a",
+    "selected-tests.json": "8e1a41ce2f50f0404720590ac088d4c076d339835c82935f3dbae246447aa628",
+    "summary.json": "eaff93f58f0c4e6603d96a6c1cdba240103dd4a099ce3e96f5fed6071cabe900"
+  }
+}

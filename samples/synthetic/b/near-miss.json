@@ -1,0 +1,9 @@
+[
+  {
+    "test_id": 1,
+    "classification": "promoted_already_selected",
+    "promoted": true,
+    "retained": true,
+    "baseline_selected": true
+  }
+]

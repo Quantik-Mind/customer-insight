@@ -1,0 +1,162 @@
+name: Quantik Mind – Customer Insight
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  decision-intelligence:
+    name: Quantik Mind – Decision Intelligence
+    runs-on: ubuntu-latest
+
+    steps:
+      # ------------------------------------------------------------
+      # Checkout
+      # ------------------------------------------------------------
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ------------------------------------------------------------
+      # Functional Selection
+      # ------------------------------------------------------------
+      - name: Call Quantik Mind – Functional Selection
+        env:
+          API_URL: ${{ secrets.QUANTIK_API_URL }}
+          TOKEN: ${{ secrets.QUANTIK_API_TOKEN }}
+          PROJECT_ID: ${{ secrets.QUANTIK_PROJECT_ID }}
+        run: |
+          set -e
+
+          echo ""
+          echo "============================================"
+          echo "🧠 Quantik Mind – Test Selection Intelligence"
+          echo "============================================"
+          echo ""
+
+          HTTP_CODE=$(curl -sS -w "%{http_code}" -o select.json \
+            -X GET \
+            "$API_URL/functional/select?project_id=$PROJECT_ID&lookback_commits_hours=24" \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Accept: application/json")
+
+          if [ "$HTTP_CODE" -ne 200 ]; then
+            echo "❌ API failed with status $HTTP_CODE"
+            cat select.json
+            exit 1
+          fi
+
+          jq empty select.json
+
+          RUN_ID=$(jq -r '.run_id' select.json)
+
+          if [ "$RUN_ID" = "null" ] || [ -z "$RUN_ID" ]; then
+            echo "❌ RUN_ID missing"
+            exit 1
+          fi
+
+          echo "🎯 Test Selection Results"
+          echo "--------------------------------------------"
+          echo "• Total tests     : $(jq -r '.counts.total' select.json)"
+          echo "• Selected tests  : $(jq -r '.counts.selected' select.json)"
+          echo "• Reduction       : $(jq -r '.reduction_percentage' select.json)%"
+          echo ""
+
+          echo ""
+          echo "✅ Selected Tests (ready for execution)"
+          echo "--------------------------------------------"
+          
+          jq -r '.selected[] | .test_name' select.json > selected_tests.txt
+          
+          echo ""
+          echo "💾 Test list saved to: selected_tests.txt"
+          echo ""
+          
+          echo "📦 Commit Awareness"
+          echo "--------------------------------------------"
+          echo "• Enabled         : $(jq -r '.commit_consideration.enabled' select.json)"
+          echo "• Affected tests  : $(jq -r '.commit_consideration.affected_tests' select.json)"
+          echo ""
+
+          echo "RUN_ID=$RUN_ID" >> $GITHUB_ENV
+
+      # ------------------------------------------------------------
+      # Decision Insight
+      # ------------------------------------------------------------
+      - name: Call Quantik Mind – Decision Insight
+        env:
+          API_URL: ${{ secrets.QUANTIK_API_URL }}
+          TOKEN: ${{ secrets.QUANTIK_API_TOKEN }}
+        run: |
+          set -e
+
+          echo ""
+          echo "============================================"
+          echo "📈 Quantik Mind – Decision Insight"
+          echo "============================================"
+          echo ""
+
+          HTTP_CODE=$(curl -sS -w "%{http_code}" -o insight.json \
+            -X GET \
+            "$API_URL/functional/runs/$RUN_ID/decision-insight" \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Accept: application/json")
+
+          if [ "$HTTP_CODE" -ne 200 ]; then
+            echo "❌ Insight API failed with status $HTTP_CODE"
+            cat insight.json
+            exit 1
+          fi
+
+          jq empty insight.json
+
+          echo "🧬 Quantum Distribution"
+          echo "--------------------------------------------"
+          echo "• Superposition   : $(jq -r '.quantum.distribution.superposition' insight.json)"
+          echo "• Entanglement    : $(jq -r '.quantum.distribution.entanglement' insight.json)"
+          echo "• Uncertainty     : $(jq -r '.quantum.distribution.uncertainty' insight.json)"
+          echo ""
+
+          echo "🛡️ Risk Coverage"
+          echo "--------------------------------------------"
+          echo "• Risk Coverage   : $(jq -r '.risk.coverage_percentage' insight.json)%"
+          echo "• Risk Efficiency : $(jq -r '.risk.efficiency' insight.json)x"
+          echo "• Top-25% Risk    : $(jq -r '.risk.top25_share' insight.json)%"
+          echo ""
+
+          echo "🟢 Always-Green"
+          echo "--------------------------------------------"
+          echo "• Avoided tests   : $(jq -r '.always_green.avoided' insight.json)"
+          echo ""
+
+          echo "✅ Quantik Mind decision completed successfully"
+          echo ""
+
+      # ------------------------------------------------------------
+      # Save Artifacts
+      # ------------------------------------------------------------
+      - name: Verify files before upload
+        run: |
+          set -e
+          echo "Files in workspace:"
+          ls -la *.json *.txt
+          echo ""
+          echo "Checking selected_tests.txt:"
+          if [ -f selected_tests.txt ]; then
+            echo "✅ File exists ($(wc -l < selected_tests.txt) lines)"
+          else
+            echo "❌ File NOT found!"
+            exit 1
+          fi
+          
+      - name: Upload Decision Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quantik-decision
+          path: |
+            select.json
+            insight.json
+            selected_tests.txt
+          retention-days: 30

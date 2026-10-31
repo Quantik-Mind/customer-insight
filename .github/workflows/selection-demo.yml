@@ -1,0 +1,189 @@
+name: Quantik Mind independently triggered pipeline demo
+on:
+  workflow_call:
+    inputs:
+      execution: {type: string, required: true}
+      a_run_id: {type: string, default: ''}
+      base_sha: {type: string, default: ''}
+      head_sha: {type: string, default: ''}
+      tooling_sha: {type: string, required: true}
+      cli_source_sha: {type: string, required: true}
+      wheel_url: {type: string, required: true}
+      wheel_sha256: {type: string, required: true}
+      frontend_url: {type: string, default: ''}
+      api_url: {type: string, required: true}
+      build_mode: {type: string, default: real}
+    secrets:
+      QMIND_API_KEY: {required: true}
+      QMIND_INFLUENCE_API_KEY: {required: true}
+      DEMO_READ_TOKEN: {required: true}
+permissions: {contents: read, actions: read}
+concurrency:
+  group: qmind-project-90e48503-115d-4b34-be95-9f2f1b62767d
+  cancel-in-progress: false
+  queue: max
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    outputs:
+      skip: ${{ steps.plan.outputs.skip }}
+    steps:
+      - name: Validate trusted independent trigger
+        env:
+          REPO: ${{ github.repository }}
+          REF: ${{ github.ref }}
+          ATTEMPT: ${{ github.run_attempt }}
+          EXECUTION: ${{ inputs.execution }}
+          EVENT: ${{ github.event_name }}
+          BUILD_MODE: ${{ inputs.build_mode }}
+        run: |
+          python3 - <<'PY'
+          import os
+          assert os.environ['REPO']=='Quantik-Mind/banking-app'
+          assert os.environ['REF']=='refs/heads/demo/pipeline'
+          assert os.environ['ATTEMPT']=='1', 'Recover receipts instead of rerunning submissions'
+          assert os.environ['EXECUTION'] in ('A','B')
+          assert os.environ['EXECUTION']!='B' or os.environ['EVENT']=='workflow_dispatch'
+          assert os.environ['BUILD_MODE']=='real', 'Hosted acceptance requires real images'
+          PY
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: Quantik-Mind/quantikmind-pipeline-demo
+          ref: ${{ inputs.tooling_sha }}
+          path: tooling
+          token: ${{ secrets.DEMO_READ_TOKEN }}
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with: {python-version: '3.11.14'}
+      - name: Resolve exact A source or recover validated A for B
+        id: source
+        working-directory: tooling
+        env:
+          EXECUTION: ${{ inputs.execution }}
+          BASE: ${{ inputs.base_sha }}
+          HEAD: ${{ inputs.head_sha }}
+          EXPECTED_HEAD: ${{ github.sha }}
+          A_RUN: ${{ inputs.a_run_id }}
+          TOOLING: ${{ inputs.tooling_sha }}
+          CLI: ${{ inputs.cli_source_sha }}
+          WHEEL: ${{ inputs.wheel_sha256 }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          if [ "$EXECUTION" = B ]; then
+            python -m demo.cross_run --a-run-id "$A_RUN" --output ../source-build/a-reference --tooling-sha "$TOOLING" --cli-sha "$CLI" --wheel-sha "$WHEEL"
+          else
+            python - <<'PY'
+          import os,re
+          for name in ('TOOLING','CLI','HEAD','BASE'):
+              assert re.fullmatch('[a-f0-9]{40}',os.environ[name])
+          assert os.environ['HEAD']==os.environ['EXPECTED_HEAD']
+          with open(os.environ['GITHUB_OUTPUT'],'a') as f:
+              f.write('head='+os.environ['HEAD']+'\nbase='+os.environ['BASE']+'\n')
+          PY
+          fi
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          path: banking
+          ref: ${{ steps.source.outputs.head }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Exact change plan and service expansion
+        id: plan
+        working-directory: tooling
+        env:
+          BASE: ${{ steps.source.outputs.base }}
+          HEAD: ${{ steps.source.outputs.head }}
+          EXECUTION: ${{ inputs.execution }}
+        run: |
+          python -m demo.changes --repo ../banking --base "$BASE" --head "$HEAD" --output ../source-build
+          python - <<'PY'
+          import json,os
+          plan=json.load(open('../source-build/changes.json'))
+          if os.environ['EXECUTION']=='B':
+              assert plan==json.load(open('../source-build/a-reference/source-build/changes.json'))
+          with open(os.environ['GITHUB_OUTPUT'],'a') as f:
+              f.write('skip='+str(plan['skip_selection']).lower()+'\n')
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:
+              f.write('No relevant changes: selection skipped.\n' if plan['skip_selection'] else 'Real build and one independent execution.\n')
+          PY
+      - name: Real image assembly; no service start, push or deployment
+        if: steps.plan.outputs.skip != 'true'
+        working-directory: tooling
+        run: python -m demo.build --repo ../banking --plan ../source-build/changes.json --mode real --output ../source-build
+      - if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: source-build
+          path: |
+            source-build/**/*.json
+            source-build/**/*.csv
+          retention-days: 14
+  selection:
+    needs: build
+    if: needs.build.outputs.skip == 'false'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment:
+      name: ${{ inputs.execution == 'A' && 'qm-demo-off' || 'qm-demo-on' }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: Quantik-Mind/quantikmind-pipeline-demo
+          ref: ${{ inputs.tooling_sha }}
+          token: ${{ secrets.DEMO_READ_TOKEN }}
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with: {python-version: '3.11.14'}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with: {name: source-build, path: source-build}
+      - name: Install integrity-pinned CLI
+        env:
+          DEMO_READ_TOKEN: ${{ secrets.DEMO_READ_TOKEN }}
+          WHEEL_URL: ${{ inputs.wheel_url }}
+          WHEEL_SHA: ${{ inputs.wheel_sha256 }}
+        run: python -m demo.install_cli --url "$WHEEL_URL" --sha256 "$WHEEL_SHA" --lock locks/cli-requirements.lock
+      - name: Conditional CLI controls, one selection/export and restoration
+        env:
+          EXECUTION: ${{ inputs.execution }}
+          QMIND_API_KEY: ${{ secrets.QMIND_API_KEY }}
+          QMIND_INFLUENCE_API_KEY: ${{ secrets.QMIND_INFLUENCE_API_KEY }}
+          QMIND_API_URL: ${{ inputs.api_url }}
+          QMIND_PROJECT_ID: 90e48503-115d-4b34-be95-9f2f1b62767d
+          QUANTIKMIND_TELEMETRY_DISABLED: '1'
+          QMIND_CLI_SOURCE_SHA: ${{ inputs.cli_source_sha }}
+          QMIND_TOOLING_SHA: ${{ inputs.tooling_sha }}
+          QMIND_CLI_SHA256: ${{ inputs.wheel_sha256 }}
+        run: |
+          if [ "$EXECUTION" = A ]; then MODE=off; else MODE=on; fi
+          python -m demo.pipeline --mode "$MODE" --files source-build/changed-files.json --output execution
+      - name: Independent report; B additionally generates paired report
+        if: always()
+        env:
+          EXECUTION: ${{ inputs.execution }}
+          FRONTEND: ${{ inputs.frontend_url }}
+        run: |
+          if [ "$EXECUTION" = A ]; then
+            python -m demo.report --execution A --a execution/bundle --changes source-build/changes.json --build source-build/build.json --frontend "$FRONTEND" --output report
+          else
+            python -m demo.report --execution B --b execution/bundle --changes source-build/changes.json --build source-build/build.json --frontend "$FRONTEND" --output report
+            python -m demo.report --a source-build/a-reference/execution/bundle --b execution/bundle --changes source-build/changes.json --build source-build/build.json --frontend "$FRONTEND" --output paired-report
+          fi
+          cat report/report.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Allowlisted report and recovery artifact
+        if: always()
+        env:
+          EXECUTION: ${{ inputs.execution }}
+          TOOLING: ${{ inputs.tooling_sha }}
+          CLI: ${{ inputs.cli_source_sha }}
+          WHEEL: ${{ inputs.wheel_sha256 }}
+        run: python -m demo.session --source source-build --execution execution --report report --output publication --label "$EXECUTION" --tooling-sha "$TOOLING" --cli-sha "$CLI" --wheel-sha "$WHEEL"
+      - if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: qmind-execution-${{ inputs.execution }}
+          path: publication/**
+          retention-days: 14
+      - if: always() && inputs.execution == 'B'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with: {name: qmind-paired-report, path: 'paired-report/*', retention-days: 14}

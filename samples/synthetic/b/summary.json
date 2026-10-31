@@ -1,0 +1,44 @@
+{
+  "run_id": "22222222-2222-4222-8222-222222222222",
+  "project_id": "90e48503-115d-4b34-be95-9f2f1b62767d",
+  "status": "completed",
+  "total_experiments": 4,
+  "selected_experiments": 2,
+  "selection_context": {
+    "status": "complete",
+    "input_mode": "explicit",
+    "library_fingerprint": "synthetic-library",
+    "mapping_fingerprint": "synthetic-mapping",
+    "source_fingerprint": "synthetic-source",
+    "controls": {
+      "selection_influence_enabled": true,
+      "detection_enabled": true,
+      "automatic_observation_enabled": true
+    },
+    "provenance": {
+      "provider": "prometheus",
+      "source": "SYNTHETIC SAMPLE",
+      "dataset": "synthetic",
+      "decision_cutoff": 1793448000
+    }
+  },
+  "near_miss_explanation": {
+    "influence_enabled": true,
+    "comparison_status": "complete",
+    "outcome": "selection_changes",
+    "counts": {
+      "eligible_tests": 2,
+      "promoted_candidates": 1,
+      "retained_promotions": 1,
+      "baseline_selected": 1,
+      "actual_selected": 2,
+      "direct_addition": 0,
+      "indirect_addition": 1,
+      "added": 1,
+      "removed": 0
+    },
+    "limitations": [
+      "Synthetic fixture only; not a live execution or acceptance result."
+    ]
+  }
+}
