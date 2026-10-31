@@ -10,6 +10,37 @@ from demo import report
 from demo.sample import generate
 from demo.session import package
 from demo.cross_run import validate_reference
+from demo import pipeline
+
+
+def test_unresolved_previous_operation_blocks_new_workflow_without_edit_or_selection(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setenv("QMIND_PROJECT_ID", pipeline.PROJECT)
+    files = tmp_path / "changed-files.json"
+    files.write_text('["transaction_service/main.py"]')
+    calls = []
+
+    def qmind(arguments, output=None):
+        calls.append(arguments)
+        if arguments[:2] == ["near-miss", "controls"]:
+            return {
+                "last_operation_id": "prior-operation",
+                "is_restoration": False,
+                "revision": "a" * 64,
+            }
+        return {}
+
+    with pytest.raises(RuntimeError, match="prior temporary"):
+        pipeline.execute("off", files, tmp_path / "output", qmind=qmind)
+    assert not any(
+        call[0] == "subset" or call[:3] == ["near-miss", "influence", "set"]
+        for call in calls
+    )
+    assert (
+        json.loads((tmp_path / "output/restoration.json").read_text())["status"]
+        == "PRIOR_OPERATION_REQUIRES_RECOVERY"
+    )
 
 
 def test_a_is_complete_without_b_and_links_are_optional(tmp_path):

@@ -245,7 +245,10 @@ def model(a, b, changes, build, frontend=None, *, sample=False, execution=None):
             )
         if value["manifest"].get("complete") is not True:
             result["limitations"].append(f"{label}: selected export incomplete.")
-        if (value.get("restoration") or {}).get("status") == "RESTORATION_REQUIRED":
+        if (value.get("restoration") or {}).get("status") in {
+            "RESTORATION_REQUIRED",
+            "PRIOR_OPERATION_REQUIRES_RECOVERY",
+        }:
             result["limitations"].append(
                 f"{label}: RESTORATION REQUIRED. Preserve influence-state.json; wait/reconcile the saved run, then use conditional CLI restore. Concurrent editor changes must not be overwritten."
             )

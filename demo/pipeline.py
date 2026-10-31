@@ -80,6 +80,15 @@ def execute(mode, files, output, *, qmind=run_cli):
         controls = qmind(
             ["near-miss", "controls"], output=output / "original-controls.json"
         )
+        if controls.get("last_operation_id") and not controls.get("is_restoration"):
+            restoration = {
+                "status": "PRIOR_OPERATION_REQUIRES_RECOVERY",
+                "verified": False,
+                "procedure": "Reconcile the prior run with qmind runs list/wait; use near-miss influence restore/recover before starting another workflow. No new control edit or selection was submitted.",
+            }
+            raise RuntimeError(
+                "A prior temporary influence operation is unresolved; recover it before starting a new execution"
+            )
         qmind(
             [
                 "near-miss",
