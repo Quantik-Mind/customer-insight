@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "sample": true,
+  "files": {
+    "report.md": "aac0c60042e4af5a8383b173a870f10c78b00a1bf42ab7625419e58ba5ffa845",
+    "report.json": "192bcc7c471268c1141aa1c9467895201c732769ac878a837182e837a03a62eb",
+    "report.html": "5dc7ee82285abfe89609967d2330473c97fc5a631a27d5767a5542ccc33663e2"
+  }
+}

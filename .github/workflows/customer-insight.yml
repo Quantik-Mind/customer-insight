@@ -1,9 +1,6 @@
-name: Quantik Mind – Customer Insight
+name: Legacy Customer Insight · direct API example
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
 
 jobs:

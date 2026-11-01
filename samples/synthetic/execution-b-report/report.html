@@ -1,0 +1,75 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'"><title>Quantik Mind pipeline demo</title><style>body{font:16px system-ui;background:#f5f7fb;color:#172238;margin:0}main{max-width:1180px;margin:auto;padding:32px}h1,h2{color:#193a65}.card,details{background:white;border:1px solid #d7e1ed;border-radius:10px;padding:18px;margin:14px 0}table{border-collapse:collapse;width:100%;background:white}td,th{padding:10px;border-bottom:1px solid #d7e1ed;text-align:left}pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px}summary{cursor:pointer;font-weight:600}.notice{border-left:5px solid #c47b00;padding:16px;background:#fff5dc}a{color:#1455a2}</style><main><h1>Quantik Mind · Pipeline demo · SYNTHETIC SAMPLE</h1><p class="notice">Tests were recommended, not executed. No deployment occurred. Banking library/workload are synthetic validation data. Image assembly does not establish startup or functional correctness. Test-count reduction is not measured time/cost savings or incident prevention.</p><p>Project: <strong>Continuous Resiliance</strong> · 90e48503-115d-4b34-be95-9f2f1b62767d</p><div class=card><strong>Commit:</strong> SYNTHETIC — not an actual code commit<br><strong>Build:</strong> SIMULATED SAMPLE · illustrative<br><strong>Changed services:</strong> transaction_service<br><strong>Changed files:</strong> transaction_service/main.py</div><table><thead><tr><th></th><th>B · influence ON</th></tr></thead><tbody><tr><td>Status</td><td>completed</td></tr><tr><td>Influence</td><td>ON</td></tr><tr><td>Saved mode verified</td><td>True</td></tr><tr><td>Provider</td><td>prometheus</td></tr><tr><td>Selected / total</td><td>2 / 4</td></tr><tr><td>Test-count reduction (%)</td><td>50.0</td></tr><tr><td>Complete selected export</td><td>True</td></tr><tr><td>Original influence restoration</td><td>unverified_legacy</td></tr></tbody></table><h2>Saved near-miss influence evidence within B</h2><p>selection_changes · Comparison: complete</p><p>Data: Explicitly synthetic fixtures; no live provider acceptance. Saved source: SYNTHETIC SAMPLE; dataset: synthetic.</p><p>The saved frozen comparison shows final membership changes under influence.</p><table><thead><tr><th>Backend field</th><th>Value</th></tr></thead><tbody><tr><td>Eligible tests</td><td>2</td></tr><tr><td>Applied candidate promotions</td><td>1</td></tr><tr><td>Retained promotions</td><td>1</td></tr><tr><td>Frozen baseline selected</td><td>1</td></tr><tr><td>Actually selected</td><td>2</td></tr><tr><td>Direct additions</td><td>0</td></tr><tr><td>Indirect additions</td><td>1</td></tr><tr><td>Removals</td><td>0</td></tr></tbody></table><p>Attribution uses this B run&#x27;s saved frozen comparison only.</p><p>Zero direct additions is valid. A retained promotion may already belong to the frozen baseline.</p><h2>Limitations</h2><ul><li>B: Synthetic fixture only; not a live execution or acceptance result.</li></ul><details><summary>Source/build provenance and measured build duration</summary><pre>{
+  &quot;changes&quot;: {
+    &quot;head&quot;: &quot;SYNTHETIC \u2014 not an actual code commit&quot;,
+    &quot;services&quot;: [
+      &quot;transaction_service&quot;
+    ],
+    &quot;changed_files&quot;: [
+      &quot;transaction_service/main.py&quot;
+    ]
+  },
+  &quot;build&quot;: {
+    &quot;mode&quot;: &quot;SIMULATED SAMPLE&quot;,
+    &quot;status&quot;: &quot;illustrative&quot;,
+    &quot;services&quot;: [],
+    &quot;tests_executed&quot;: false,
+    &quot;deployed&quot;: false
+  }
+}</pre></details><h2>Execution B</h2><details><summary>Normalized backend rule units (when evidence is available)</summary><pre>{
+  &quot;latency&quot;: &quot;seconds (p95)&quot;,
+  &quot;error_rate&quot;: &quot;ratio (0\u20131)&quot;,
+  &quot;cpu&quot;: &quot;ratio (0\u20131)&quot;,
+  &quot;request_rate&quot;: &quot;requests/second&quot;
+}</pre></details><details><summary>This execution&#x27;s image build provenance</summary><pre>null</pre></details><details><summary>Captured configuration and fingerprints</summary><pre>{
+  &quot;status&quot;: &quot;complete&quot;,
+  &quot;input_mode&quot;: &quot;explicit&quot;,
+  &quot;library_fingerprint&quot;: &quot;synthetic-library&quot;,
+  &quot;mapping_fingerprint&quot;: &quot;synthetic-mapping&quot;,
+  &quot;source_fingerprint&quot;: &quot;synthetic-source&quot;,
+  &quot;controls&quot;: {
+    &quot;selection_influence_enabled&quot;: true,
+    &quot;detection_enabled&quot;: true,
+    &quot;automatic_observation_enabled&quot;: true
+  },
+  &quot;provenance&quot;: {
+    &quot;provider&quot;: &quot;prometheus&quot;,
+    &quot;source&quot;: &quot;SYNTHETIC SAMPLE&quot;,
+    &quot;dataset&quot;: &quot;synthetic&quot;,
+    &quot;decision_cutoff&quot;: 1793448000
+  }
+}</pre></details><details><summary>Mapping matches and gaps · complete paginated export</summary><pre>[
+  {
+    &quot;path&quot;: &quot;transaction_service/main.py&quot;,
+    &quot;matched&quot;: true,
+    &quot;service&quot;: &quot;transaction_service-001&quot;,
+    &quot;test_identifier&quot;: &quot;SYNTHETIC-T1&quot;
+  }
+]</pre></details><details><summary>Backend-validated promotion / retention / baseline classifications</summary><pre>[
+  {
+    &quot;test_id&quot;: 1,
+    &quot;classification&quot;: &quot;promoted_already_selected&quot;,
+    &quot;promoted&quot;: true,
+    &quot;retained&quot;: true,
+    &quot;baseline_selected&quot;: true
+  }
+]</pre></details><details><summary>Rules, units, freshness, traffic, coverage and episode/evaluation history</summary><pre>{
+  &quot;limitations&quot;: [
+    &quot;Synthetic sample; no provider request was made.&quot;
+  ]
+}</pre></details><details><summary>Focused sanitized selected evidence</summary><pre>[]</pre></details><details><summary>CLI export integrity and completeness</summary><pre>{
+  &quot;schema_version&quot;: 1,
+  &quot;complete&quot;: true,
+  &quot;sample&quot;: true,
+  &quot;selected_count&quot;: 2,
+  &quot;files&quot;: {
+    &quot;changes.json&quot;: &quot;de1f415098438931897bc8730e1d8c5c3330f291632fefc58fc5723ae1baafb3&quot;,
+    &quot;focused-evidence.json&quot;: &quot;4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945&quot;,
+    &quot;near-miss.json&quot;: &quot;efe7c40f2d096302a19ecc875505fd983e9a1e92ca991c72dcacac485444cff7&quot;,
+    &quot;observations.json&quot;: &quot;bc52ff0537181deb0798f5c04b7e6f49803485d5325d7854d9c8501e42dea671&quot;,
+    &quot;selected-tests.csv&quot;: &quot;406889b7ee22ac4412fa3c959fd14d468c0bccc3e81123935083c676548d75e2&quot;,
+    &quot;selected-tests.json&quot;: &quot;da2177beed4358c8e231af049c883cece0e92741d05db0ceb3def578ca299c0d&quot;,
+    &quot;summary.json&quot;: &quot;e22f4d4334f3c9695d0490b666a439d087019fe3e1e1da266ef9c1547015f143&quot;
+  }
+}</pre></details><details><summary>Conditional original influence restoration</summary><pre>{
+  &quot;status&quot;: &quot;unverified_legacy&quot;
+}</pre></details><details><summary>Complete selected list · 2 records</summary><table><thead><tr><th>internal_test_id</th><th>id</th><th>service</th><th>experiment_type</th><th>origin</th></tr></thead><tbody><tr><td>1</td><td>SYNTHETIC-T1</td><td>transaction_service-001</td><td>Illustrative stored test definition</td><td>superposition</td></tr><tr><td>2</td><td>SYNTHETIC-T2</td><td>transaction_service-002</td><td>Illustrative indirect addition</td><td>uncertainty</td></tr></tbody></table></details></main></html>

@@ -1,0 +1,249 @@
+{
+  "schema_version": 1,
+  "sample": true,
+  "project_name": "Continuous Resiliance",
+  "project_id": "90e48503-115d-4b34-be95-9f2f1b62767d",
+  "changes": {
+    "head": "SYNTHETIC \u2014 not an actual code commit",
+    "services": [
+      "transaction_service"
+    ],
+    "changed_files": [
+      "transaction_service/main.py"
+    ]
+  },
+  "build": {
+    "mode": "SIMULATED SAMPLE",
+    "status": "illustrative",
+    "services": [],
+    "tests_executed": false,
+    "deployed": false
+  },
+  "boundary": "Tests were recommended, not executed. No deployment occurred. Banking library/workload are synthetic validation data. Image assembly does not establish startup or functional correctness. Test-count reduction is not measured time/cost savings or incident prevention.",
+  "attribution": "A/B are separate executions with changing observation times. Only B's backend-validated frozen influence-off comparison supplies causal attribution.",
+  "runs": {
+    "A": {
+      "manifest": {
+        "schema_version": 1,
+        "complete": true,
+        "sample": true,
+        "selected_count": 1,
+        "files": {
+          "changes.json": "de1f415098438931897bc8730e1d8c5c3330f291632fefc58fc5723ae1baafb3",
+          "focused-evidence.json": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "near-miss.json": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "observations.json": "bc52ff0537181deb0798f5c04b7e6f49803485d5325d7854d9c8501e42dea671",
+          "selected-tests.csv": "3cb1f0e511bdda27a59ff1cee39f089ef06c19b75a727faa749af3e02aae285a",
+          "selected-tests.json": "8e1a41ce2f50f0404720590ac088d4c076d339835c82935f3dbae246447aa628",
+          "summary.json": "eaff93f58f0c4e6603d96a6c1cdba240103dd4a099ce3e96f5fed6071cabe900"
+        }
+      },
+      "summary": {
+        "run_id": "11111111-1111-4111-8111-111111111111",
+        "project_id": "90e48503-115d-4b34-be95-9f2f1b62767d",
+        "status": "completed",
+        "total_experiments": 4,
+        "selected_experiments": 1,
+        "selection_context": {
+          "status": "complete",
+          "input_mode": "explicit",
+          "library_fingerprint": "synthetic-library",
+          "mapping_fingerprint": "synthetic-mapping",
+          "source_fingerprint": "synthetic-source",
+          "controls": {
+            "selection_influence_enabled": false,
+            "detection_enabled": true,
+            "automatic_observation_enabled": true
+          },
+          "provenance": {
+            "provider": "prometheus",
+            "source": "SYNTHETIC SAMPLE",
+            "dataset": "synthetic",
+            "decision_cutoff": 1793448000
+          }
+        },
+        "near_miss_explanation": {
+          "influence_enabled": false,
+          "comparison_status": "unavailable",
+          "outcome": "influence_disabled",
+          "counts": {
+            "direct_addition": null
+          },
+          "limitations": [
+            "Synthetic fixture only; not a live execution or acceptance result."
+          ]
+        }
+      },
+      "selected": [
+        {
+          "internal_test_id": 1,
+          "id": "SYNTHETIC-T1",
+          "service": "transaction_service-001",
+          "experiment_type": "Illustrative stored test definition",
+          "origin": "superposition"
+        }
+      ],
+      "build_provenance": null,
+      "near_miss": [],
+      "changes": [
+        {
+          "path": "transaction_service/main.py",
+          "matched": true,
+          "service": "transaction_service-001",
+          "test_identifier": "SYNTHETIC-T1"
+        }
+      ],
+      "observations": {
+        "limitations": [
+          "Synthetic sample; no provider request was made."
+        ]
+      },
+      "focused_evidence": [],
+      "restoration": {
+        "status": "unverified_legacy"
+      },
+      "link": "https://example.invalid/results?runId=11111111-1111-4111-8111-111111111111",
+      "count_reduction_pct": 75.0,
+      "mode_verified": true,
+      "provider": "prometheus"
+    },
+    "B": {
+      "manifest": {
+        "schema_version": 1,
+        "complete": true,
+        "sample": true,
+        "selected_count": 2,
+        "files": {
+          "changes.json": "de1f415098438931897bc8730e1d8c5c3330f291632fefc58fc5723ae1baafb3",
+          "focused-evidence.json": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "near-miss.json": "efe7c40f2d096302a19ecc875505fd983e9a1e92ca991c72dcacac485444cff7",
+          "observations.json": "bc52ff0537181deb0798f5c04b7e6f49803485d5325d7854d9c8501e42dea671",
+          "selected-tests.csv": "406889b7ee22ac4412fa3c959fd14d468c0bccc3e81123935083c676548d75e2",
+          "selected-tests.json": "da2177beed4358c8e231af049c883cece0e92741d05db0ceb3def578ca299c0d",
+          "summary.json": "e22f4d4334f3c9695d0490b666a439d087019fe3e1e1da266ef9c1547015f143"
+        }
+      },
+      "summary": {
+        "run_id": "22222222-2222-4222-8222-222222222222",
+        "project_id": "90e48503-115d-4b34-be95-9f2f1b62767d",
+        "status": "completed",
+        "total_experiments": 4,
+        "selected_experiments": 2,
+        "selection_context": {
+          "status": "complete",
+          "input_mode": "explicit",
+          "library_fingerprint": "synthetic-library",
+          "mapping_fingerprint": "synthetic-mapping",
+          "source_fingerprint": "synthetic-source",
+          "controls": {
+            "selection_influence_enabled": true,
+            "detection_enabled": true,
+            "automatic_observation_enabled": true
+          },
+          "provenance": {
+            "provider": "prometheus",
+            "source": "SYNTHETIC SAMPLE",
+            "dataset": "synthetic",
+            "decision_cutoff": 1793448000
+          }
+        },
+        "near_miss_explanation": {
+          "influence_enabled": true,
+          "comparison_status": "complete",
+          "outcome": "selection_changes",
+          "counts": {
+            "eligible_tests": 2,
+            "promoted_candidates": 1,
+            "retained_promotions": 1,
+            "baseline_selected": 1,
+            "actual_selected": 2,
+            "direct_addition": 0,
+            "indirect_addition": 1,
+            "added": 1,
+            "removed": 0
+          },
+          "limitations": [
+            "Synthetic fixture only; not a live execution or acceptance result."
+          ]
+        }
+      },
+      "selected": [
+        {
+          "internal_test_id": 1,
+          "id": "SYNTHETIC-T1",
+          "service": "transaction_service-001",
+          "experiment_type": "Illustrative stored test definition",
+          "origin": "superposition"
+        },
+        {
+          "internal_test_id": 2,
+          "id": "SYNTHETIC-T2",
+          "service": "transaction_service-002",
+          "experiment_type": "Illustrative indirect addition",
+          "origin": "uncertainty"
+        }
+      ],
+      "build_provenance": null,
+      "near_miss": [
+        {
+          "test_id": 1,
+          "classification": "promoted_already_selected",
+          "promoted": true,
+          "retained": true,
+          "baseline_selected": true
+        }
+      ],
+      "changes": [
+        {
+          "path": "transaction_service/main.py",
+          "matched": true,
+          "service": "transaction_service-001",
+          "test_identifier": "SYNTHETIC-T1"
+        }
+      ],
+      "observations": {
+        "limitations": [
+          "Synthetic sample; no provider request was made."
+        ]
+      },
+      "focused_evidence": [],
+      "restoration": {
+        "status": "unverified_legacy"
+      },
+      "link": "https://example.invalid/results?runId=22222222-2222-4222-8222-222222222222",
+      "count_reduction_pct": 50.0,
+      "mode_verified": true,
+      "provider": "prometheus"
+    }
+  },
+  "limitations": [
+    "A: Synthetic fixture only; not a live execution or acceptance result.",
+    "B: Synthetic fixture only; not a live execution or acceptance result."
+  ],
+  "normalized_metric_units": {
+    "latency": "seconds (p95)",
+    "error_rate": "ratio (0\u20131)",
+    "cpu": "ratio (0\u20131)",
+    "request_rate": "requests/second"
+  },
+  "contribution": {
+    "influence_enabled": true,
+    "comparison_status": "complete",
+    "outcome": "selection_changes",
+    "counts": {
+      "eligible_tests": 2,
+      "promoted_candidates": 1,
+      "retained_promotions": 1,
+      "baseline_selected": 1,
+      "actual_selected": 2,
+      "direct_addition": 0,
+      "indirect_addition": 1,
+      "added": 1,
+      "removed": 0
+    },
+    "limitations": [
+      "Synthetic fixture only; not a live execution or acceptance result."
+    ]
+  },
+  "data_scope": "Explicitly synthetic fixtures; no live provider acceptance. Saved source: SYNTHETIC SAMPLE; dataset: synthetic."
+}

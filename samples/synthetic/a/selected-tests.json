@@ -1,0 +1,9 @@
+[
+  {
+    "internal_test_id": 1,
+    "id": "SYNTHETIC-T1",
+    "service": "transaction_service-001",
+    "experiment_type": "Illustrative stored test definition",
+    "origin": "superposition"
+  }
+]

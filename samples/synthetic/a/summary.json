@@ -1,0 +1,36 @@
+{
+  "run_id": "11111111-1111-4111-8111-111111111111",
+  "project_id": "90e48503-115d-4b34-be95-9f2f1b62767d",
+  "status": "completed",
+  "total_experiments": 4,
+  "selected_experiments": 1,
+  "selection_context": {
+    "status": "complete",
+    "input_mode": "explicit",
+    "library_fingerprint": "synthetic-library",
+    "mapping_fingerprint": "synthetic-mapping",
+    "source_fingerprint": "synthetic-source",
+    "controls": {
+      "selection_influence_enabled": false,
+      "detection_enabled": true,
+      "automatic_observation_enabled": true
+    },
+    "provenance": {
+      "provider": "prometheus",
+      "source": "SYNTHETIC SAMPLE",
+      "dataset": "synthetic",
+      "decision_cutoff": 1793448000
+    }
+  },
+  "near_miss_explanation": {
+    "influence_enabled": false,
+    "comparison_status": "unavailable",
+    "outcome": "influence_disabled",
+    "counts": {
+      "direct_addition": null
+    },
+    "limitations": [
+      "Synthetic fixture only; not a live execution or acceptance result."
+    ]
+  }
+}
