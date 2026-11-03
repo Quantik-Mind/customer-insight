@@ -902,7 +902,7 @@ def main():
                     validated = validate_reference(
                         previous,
                         metadata,
-                        tooling_sha=captured["tooling_sha"],
+                        a_tooling_sha=captured["tooling_sha"],
                         cli_sha=captured["cli_source_sha"],
                         wheel_sha=captured["wheel_sha256"],
                     )

@@ -18,7 +18,7 @@ REPOSITORY = "Quantik-Mind/banking-app"
 PROJECT = os.environ.get("QMIND_PROJECT_ID", "").strip() or "90e48503-115d-4b34-be95-9f2f1b62767d"
 
 
-def validate_reference(root, run, *, tooling_sha, cli_sha, wheel_sha):
+def validate_reference(root, run, *, a_tooling_sha, cli_sha, wheel_sha):
     root = Path(root)
     session = json.loads((root / "session.json").read_text())
     assert run["repository"]["full_name"] == REPOSITORY
@@ -29,7 +29,8 @@ def validate_reference(root, run, *, tooling_sha, cli_sha, wheel_sha):
     assert session["execution"] == "A" and session["project_id"] == PROJECT
     assert session["repository"] == REPOSITORY and session["head"] == run["head_sha"]
     assert (
-        session["tooling_sha"] == tooling_sha and session["cli_source_sha"] == cli_sha
+        session["tooling_sha"] == a_tooling_sha
+        and session["cli_source_sha"] == cli_sha
     )
     assert session["wheel_sha256"] == wheel_sha
     invalid_files = []
@@ -112,7 +113,7 @@ def get(path):
     return value
 
 
-def recover(run_id, output, *, tooling_sha, cli_sha, wheel_sha):
+def recover(run_id, output, *, a_tooling_sha, cli_sha, wheel_sha):
     assert re.fullmatch(r"[1-9][0-9]{0,19}", str(run_id))
     prefix = "https://api.github.com/repos/" + REPOSITORY + "/actions/"
     run = json.loads(get(prefix + "runs/" + str(run_id)))
@@ -159,7 +160,11 @@ def recover(run_id, output, *, tooling_sha, cli_sha, wheel_sha):
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(archive.read(item))
     session = validate_reference(
-        output, run, tooling_sha=tooling_sha, cli_sha=cli_sha, wheel_sha=wheel_sha
+        output,
+        run,
+        a_tooling_sha=a_tooling_sha,
+        cli_sha=cli_sha,
+        wheel_sha=wheel_sha,
     )
     return session
 
@@ -168,14 +173,18 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--a-run-id", required=True)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--tooling-sha", required=True)
+    parser.add_argument(
+        "--a-tooling-sha",
+        required=True,
+        help="Immutable tooling provenance recorded by the referenced A artifact",
+    )
     parser.add_argument("--cli-sha", required=True)
     parser.add_argument("--wheel-sha", required=True)
     args = parser.parse_args()
     session = recover(
         args.a_run_id,
         args.output,
-        tooling_sha=args.tooling_sha,
+        a_tooling_sha=args.a_tooling_sha,
         cli_sha=args.cli_sha,
         wheel_sha=args.wheel_sha,
     )

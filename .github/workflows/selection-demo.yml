@@ -7,6 +7,7 @@ on:
       base_sha: {type: string, default: ''}
       head_sha: {type: string, default: ''}
       tooling_sha: {type: string, required: true}
+      a_tooling_sha: {type: string, default: ''}
       cli_source_sha: {type: string, required: true}
       wheel_url: {type: string, required: true}
       wheel_sha256: {type: string, required: true}
@@ -69,13 +70,18 @@ jobs:
           EXPECTED_HEAD: ${{ github.sha }}
           A_RUN: ${{ inputs.a_run_id }}
           TOOLING: ${{ inputs.tooling_sha }}
+          A_TOOLING: ${{ inputs.a_tooling_sha }}
           CLI: ${{ inputs.cli_source_sha }}
           WHEEL: ${{ inputs.wheel_sha256 }}
           GITHUB_TOKEN: ${{ github.token }}
           QMIND_PROJECT_ID: ${{ inputs.project_id }}
         run: |
           if [ "$EXECUTION" = B ]; then
-            python -m demo.cross_run --a-run-id "$A_RUN" --output ../source-build/a-reference --tooling-sha "$TOOLING" --cli-sha "$CLI" --wheel-sha "$WHEEL"
+            python - <<'PY'
+          import os,re
+          assert re.fullmatch('[a-f0-9]{40}',os.environ['A_TOOLING']), 'B requires the immutable tooling provenance recorded by A'
+          PY
+            python -m demo.cross_run --a-run-id "$A_RUN" --output ../source-build/a-reference --a-tooling-sha "$A_TOOLING" --cli-sha "$CLI" --wheel-sha "$WHEEL"
           else
             python - <<'PY'
           import os,re

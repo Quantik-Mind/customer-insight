@@ -175,8 +175,22 @@ def reference(tmp_path, monkeypatch):
     )
     monkeypatch.setenv("GITHUB_RUN_ID", "123")
     archive = tmp_path / "artifact"
-    pins = {"tooling_sha": "ab" * 20, "cli_sha": "cd" * 20, "wheel_sha": "3" * 64}
-    package(source, execution, fixture, archive, "A", **pins)
+    tooling_sha = "ab" * 20
+    pins = {
+        "a_tooling_sha": tooling_sha,
+        "cli_sha": "cd" * 20,
+        "wheel_sha": "3" * 64,
+    }
+    package(
+        source,
+        execution,
+        fixture,
+        archive,
+        "A",
+        tooling_sha=tooling_sha,
+        cli_sha=pins["cli_sha"],
+        wheel_sha=pins["wheel_sha"],
+    )
     run = {
         "repository": {"full_name": "Quantik-Mind/banking-app"},
         "path": ".github/workflows/quantikmind-pipeline-demo.yml",
@@ -207,6 +221,17 @@ def test_b_validates_actual_seal_and_refuses_wrong_origin_or_tamper(
     (archive / "source-build/changed-files.json").write_text('["tampered.py"]')
     with pytest.raises(AssertionError):
         validate_reference(archive, run, **pins)
+
+
+def test_b_accepts_a_predecessor_tooling_provenance_without_resealing(
+    tmp_path, monkeypatch
+):
+    archive, run, pins = reference(tmp_path, monkeypatch)
+    current_tooling_sha = "ef" * 20
+    assert current_tooling_sha != pins["a_tooling_sha"]
+    session = validate_reference(archive, run, **pins)
+    assert session["tooling_sha"] == pins["a_tooling_sha"]
+    assert session["tooling_sha"] != current_tooling_sha
 
 
 def test_no_automatic_off_on_chain_and_publication_remains_gated():

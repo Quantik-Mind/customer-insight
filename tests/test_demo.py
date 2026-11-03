@@ -281,6 +281,7 @@ def test_publication_templates_and_workflow_contracts():
     assert inputs["project_id"]["required"] is True
     assert inputs["tau"]["required"] is True
     assert inputs["provider"]["required"] is True
+    assert inputs["a_tooling_sha"]["default"] == ""
     assert workflow["permissions"] == {"contents": "read", "actions": "read"}
     assert workflow["concurrency"]["cancel-in-progress"] is False
     assert workflow["concurrency"]["queue"] == "max"
@@ -293,6 +294,10 @@ def test_publication_templates_and_workflow_contracts():
     )
     assert '--tau "$QMIND_SELECTION_TAU"' in selection_script
     assert '--provider "$QMIND_EXPECTED_PROVIDER"' in selection_script
+    build_script = "\n".join(
+        step.get("run", "") for step in workflow["jobs"]["build"]["steps"]
+    )
+    assert '--a-tooling-sha "$A_TOOLING"' in build_script
     source_upload = next(
         step
         for step in workflow["jobs"]["build"]["steps"]
