@@ -22,14 +22,24 @@ OUTCOMES = {
 }
 COUNT_LABELS = {
     "eligible_tests": "Eligible tests",
-    "promoted_candidates": "Applied candidate promotions",
-    "retained_promotions": "Retained promotions",
     "baseline_selected": "Frozen baseline selected",
     "actual_selected": "Actually selected",
-    "direct_addition": "Direct additions",
-    "indirect_addition": "Indirect additions",
     "added": "All additions",
     "removed": "Removals",
+}
+RF_COUNT_LABELS = {
+    "added_direct_model_response": "Probability-driven additions",
+    "added_indirect_threshold_or_guardrail": "Threshold or coverage additions",
+    "removed_direct_model_response": "Probability-driven removals",
+    "removed_indirect_threshold_or_guardrail": "Threshold or coverage removals",
+    "model_probability_changed": "Individual probabilities changed",
+    "model_probability_changed_membership_unchanged": "Probability changed, selection unchanged",
+}
+LEGACY_PROMOTION_LABELS = {
+    "promoted_candidates": "Legacy candidate promotions applied",
+    "retained_promotions": "Legacy promotions retained",
+    "direct_addition": "Legacy promotions additionally selected",
+    "indirect_addition": "Added without a legacy promotion",
 }
 
 # Display the normalized backend rule contract, not raw provider-unit inference.
@@ -83,6 +93,8 @@ def comparison_reason(row):
         return "Removed because the adaptive threshold increased; the saved individual probability did not change and no coverage guardrail retained the test."
     if reason in {"added_probability_increased", "added_above_threshold"}:
         return "Added because its saved estimated informativeness increased enough to meet the adaptive threshold."
+    if row.get("effect_classification") == "added_direct_model_response":
+        return "Added because its saved estimated informativeness increased enough to meet the adaptive threshold; no coverage guardrail changed the decision."
     if reason in {"added_coverage_guardrail", "removed_coverage_policy"}:
         return "Selection changed through the saved mapped-risk coverage policy."
     if reason:
@@ -446,6 +458,7 @@ def model(a, b, changes, build, frontend=None, *, sample=False, execution=None):
         ),
     }
     counts = result["contribution"].get("counts") or {}
+    rf_counts = result["contribution"].get("rf_counts") or {}
     if result["contribution"].get("comparison_status") == "complete":
         baseline, added, removed, actual = (
             counts.get("baseline_selected"), counts.get("added"),
@@ -461,6 +474,30 @@ def model(a, b, changes, build, frontend=None, *, sample=False, execution=None):
                 "with_influence": actual,
                 "valid": True,
             }
+        effect_categories = (
+            "added_direct_model_response",
+            "added_indirect_threshold_or_guardrail",
+            "removed_direct_model_response",
+            "removed_indirect_threshold_or_guardrail",
+        )
+        if all(type(rf_counts.get(key)) is int for key in effect_categories):
+            if (
+                rf_counts["added_direct_model_response"]
+                + rf_counts["added_indirect_threshold_or_guardrail"]
+                != counts.get("added")
+                or rf_counts["removed_direct_model_response"]
+                + rf_counts["removed_indirect_threshold_or_guardrail"]
+                != counts.get("removed")
+            ):
+                raise ValueError("Saved RF effect categories do not reconcile with membership changes.")
+            for key in effect_categories:
+                rows_in_category = sum(
+                    row.get("effect_classification") == key for row in comparison_rows
+                )
+                if rows_in_category != rf_counts[key]:
+                    raise ValueError(
+                        f"Saved RF effect category {key} disagrees with its test rows."
+                    )
     provenance = (cb or ca).get("provenance") or {}
     result["data_scope"] = (
         (
@@ -624,24 +661,17 @@ def render(result, output):
         ]
     )
     counts = contribution.get("counts") or {}
+    rf_counts = contribution.get("rf_counts") or {}
     for key in (
         "eligible_tests",
-        "promoted_candidates",
-        "retained_promotions",
         "baseline_selected",
         "actual_selected",
-        "direct_addition",
-        "indirect_addition",
         "added",
         "removed",
     ):
         lines.append(f"| {COUNT_LABELS[key]} | {md(counts.get(key))} |")
-    lines.append(
-        f"| Individual probabilities changed | {result['near_miss_comparison']['probability_changed']} |"
-    )
-    lines.append(
-        f"| Probability changed, selection unchanged | {result['near_miss_comparison']['probability_only']} |"
-    )
+    for key, label in RF_COUNT_LABELS.items():
+        lines.append(f"| {label} | {md(rf_counts.get(key))} |")
     lines.extend(
         [
             "",
@@ -653,7 +683,13 @@ def render(result, output):
             "",
             "Both frozen assessments use the same saved inputs. Only near-miss influence changes.",
             "",
-            "Zero direct additions is a valid result. Applied promotion and retention do not by themselves establish additional selection.",
+            "RF effect categories are based on frozen probability, threshold, membership and guardrail decisions. Legacy candidate promotions are separate diagnostics and do not define model influence.",
+            "",
+            "<details><summary>Legacy candidate-promotion diagnostics</summary>",
+            "",
+            *[f"- {label}: {md(counts.get(key))}" for key, label in LEGACY_PROMOTION_LABELS.items()],
+            "",
+            "</details>",
             "",
             "## Evidence limitations",
             "",
@@ -875,21 +911,18 @@ def render(result, output):
             [COUNT_LABELS[key], counts.get(key)]
             for key in (
                 "eligible_tests",
-                "promoted_candidates",
-                "retained_promotions",
                 "baseline_selected",
                 "actual_selected",
-                "direct_addition",
-                "indirect_addition",
                 "added",
                 "removed",
             )
         ]
-        + [
-            ["Individual probabilities changed", result["near_miss_comparison"]["probability_changed"]],
-            ["Probability changed, selection unchanged", result["near_miss_comparison"]["probability_only"]],
-        ],
+        + [[label, rf_counts.get(key)] for key, label in RF_COUNT_LABELS.items()],
     )
+    html += "<details><summary>Legacy candidate-promotion diagnostics</summary>" + table(
+        ["Diagnostic", "Value"],
+        [[label, counts.get(key)] for key, label in LEGACY_PROMOTION_LABELS.items()],
+    ) + "</details>"
     if membership_rows:
         html += "<h3>Added and removed tests</h3>"
         html += table(

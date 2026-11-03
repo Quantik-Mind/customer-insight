@@ -163,9 +163,33 @@ def test_offline_report_preserves_backend_zero_null_and_escapes(tmp_path):
     assert "<script>" not in html and "&lt;script&gt;" in html
     assert "SYNTHETIC SAMPLE" in html and "<script src" not in html
     assert "Tests were selected, not executed" in html
+    assert "Probability-driven additions" in html
+    assert "Legacy candidate-promotion diagnostics" in html
     assert report.scrub({"api_key": "hidden", "reason": "qm_live_sensitive"}) == {
         "reason": "[REDACTED]"
     }
+
+
+def test_report_uses_frozen_rf_effect_reason_not_legacy_promotion_label():
+    assert report.comparison_reason(
+        {
+            "baseline_selected": False,
+            "selected": True,
+            "effect_classification": "added_direct_model_response",
+            "selection_change_reason": "added_probability_increased",
+        }
+    ) == (
+        "Added because its saved estimated informativeness increased enough to meet "
+        "the adaptive threshold."
+    )
+    assert report.comparison_reason(
+        {
+            "baseline_selected": True,
+            "selected": False,
+            "effect_classification": "removed_indirect_threshold_or_guardrail",
+            "selection_change_reason": "removed_adaptive_threshold_increased",
+        }
+    ).startswith("Removed because the adaptive threshold increased")
 
 
 def test_fixture_report_does_not_claim_gcp_or_live_provider_acceptance(tmp_path):
