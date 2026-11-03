@@ -63,6 +63,26 @@ def test_a_is_complete_without_b_and_links_are_optional(tmp_path):
     html = (tmp_path / "standalone/report.html").read_text()
     assert "Complete selected list" in html and "influence ON" not in html
     assert "seconds (p95)" in html and "requests/second" in html
+    assert "No frozen counterfactual is available" in html
+    assert "Frozen baseline selected" not in html
+    assert "Both frozen assessments use the same saved inputs" not in html
+
+
+def test_production_demo_project_name_is_not_local_placeholder(tmp_path):
+    fixture = tmp_path / "fixture"
+    generated = generate(fixture)
+    value = report.bundle(fixture / "a")
+    value["summary"]["project_id"] = "456d2579-60bc-56a0-96b9-9c2dd41cc0da"
+    value["summary"].pop("project_name", None)
+    result = report.model(
+        value,
+        None,
+        generated["changes"],
+        generated["build"],
+        execution="A",
+        sample=True,
+    )
+    assert result["project_name"] == "Continuous Resilience"
 
 
 def test_b_has_own_report_and_restoration_failure_is_prominent(tmp_path):
@@ -84,6 +104,48 @@ def test_b_has_own_report_and_restoration_failure_is_prominent(tmp_path):
     )
     report.render(result, tmp_path / "standalone")
     assert "RESTORATION_REQUIRED" in (tmp_path / "standalone/report.html").read_text()
+
+
+def test_failed_b_uses_recovered_project_and_does_not_invent_selection(tmp_path):
+    execution = tmp_path / "execution"
+    bundle_dir = execution / "bundle"
+    bundle_dir.mkdir(parents=True)
+    (execution / "attempt.json").write_text(
+        json.dumps(
+            {
+                "status": "failed_or_uncertain",
+                "project_id": "456d2579-60bc-56a0-96b9-9c2dd41cc0da",
+            }
+        )
+    )
+    (execution / "receipt.json").write_text(
+        json.dumps(
+            {
+                "status": "submitting",
+                "submission_outcome": "unknown",
+                "project_id": "456d2579-60bc-56a0-96b9-9c2dd41cc0da",
+            }
+        )
+    )
+    (execution / "restoration.json").write_text(
+        json.dumps({"status": "RESTORATION_REQUIRED", "verified": False})
+    )
+    value = report.bundle(bundle_dir)
+    generated = generate(tmp_path / "fixture")
+    result = report.model(
+        None,
+        value,
+        generated["changes"],
+        generated["build"],
+        execution="B",
+        sample=False,
+    )
+    assert result["project_name"] == "Continuous Resilience"
+    assert result["runs"]["B"]["membership"]["final_selected"] is None
+    report.render(result, tmp_path / "failed-report")
+    rendered = (tmp_path / "failed-report/report.md").read_text()
+    assert "No frozen counterfactual is available" in rendered
+    assert "Frozen baseline selected" not in rendered
 
 
 def reference(tmp_path, monkeypatch):

@@ -227,6 +227,49 @@ def test_bundle_integrity_and_no_existing_result_dependency(tmp_path):
     assert missing["manifest"]["complete"] is False
 
 
+def test_bundle_reports_every_missing_manifest_file(tmp_path):
+    sample(tmp_path)
+    manifest = json.loads((tmp_path / "a/manifest.json").read_text())
+    names = list(manifest["files"])[:2]
+    assert len(names) == 2
+    for name in names:
+        (tmp_path / "a" / name).unlink()
+    with pytest.raises(ValueError) as exc:
+        report.bundle(tmp_path / "a")
+    for name in names:
+        assert f"missing:{name}" in str(exc.value)
+
+
+def test_report_uses_saved_canonical_membership_reconciliation(tmp_path):
+    generated = sample(tmp_path / "fixture")
+    value = report.bundle(tmp_path / "fixture/a")
+    selected_count = len(value["selected"])
+    value["summary"].setdefault("business_metrics", {})[
+        "membership_reconciliation"
+    ] = {
+        "at_or_above_threshold": selected_count - 2,
+        "coverage_guardrail_additions": 3,
+        "post_selection_removals": 1,
+        "final_selected": selected_count,
+        "reconciles": True,
+    }
+    result = report.model(
+        value,
+        None,
+        generated["changes"],
+        generated["build"],
+        execution="A",
+        sample=True,
+    )
+    assert result["runs"]["A"]["membership"] == {
+        "standard_threshold": selected_count - 2,
+        "coverage_guardrail": 3,
+        "post_selection_removals": 1,
+        "final_selected": selected_count,
+        "source": "saved_membership_reconciliation",
+    }
+
+
 def test_publication_templates_and_workflow_contracts():
     root = Path(__file__).parents[1]
     workflow = yaml.safe_load(
@@ -250,6 +293,14 @@ def test_publication_templates_and_workflow_contracts():
     )
     assert '--tau "$QMIND_SELECTION_TAU"' in selection_script
     assert '--provider "$QMIND_EXPECTED_PROVIDER"' in selection_script
+    source_upload = next(
+        step
+        for step in workflow["jobs"]["build"]["steps"]
+        if step.get("uses", "").startswith("actions/upload-artifact@")
+    )
+    source_paths = source_upload["with"]["path"]
+    assert "source-build/**/*.md" in source_paths
+    assert "source-build/**/*.html" in source_paths
     for job in workflow["jobs"].values():
         for step in job.get("steps", []):
             if "uses" in step:

@@ -50,6 +50,11 @@ NORMALIZED_METRIC_UNITS = {
     "request_rate": "requests/second",
 }
 
+KNOWN_PROJECT_NAMES = {
+    "90e48503-115d-4b34-be95-9f2f1b62767d": "Continuous Resilience",
+    "456d2579-60bc-56a0-96b9-9c2dd41cc0da": "Continuous Resilience",
+}
+
 
 def load(path):
     return json.loads(Path(path).read_text(encoding="utf-8"))
@@ -85,6 +90,41 @@ def changed_probability(row):
 
 def percentage(value):
     return "Unavailable" if not isinstance(value, (int, float)) else f"{value * 100:.2f}%"
+
+
+def membership_counts(summary, selected):
+    reconciliation = (summary.get("business_metrics") or {}).get(
+        "membership_reconciliation"
+    ) or {}
+    canonical = {
+        "standard_threshold": reconciliation.get("at_or_above_threshold"),
+        "coverage_guardrail": reconciliation.get("coverage_guardrail_additions"),
+        "post_selection_removals": reconciliation.get("post_selection_removals"),
+        "final_selected": reconciliation.get("final_selected"),
+    }
+    if reconciliation.get("reconciles") is True and all(
+        type(value) is int for value in canonical.values()
+    ):
+        if (
+            canonical["standard_threshold"]
+            + canonical["coverage_guardrail"]
+            - canonical["post_selection_removals"]
+            != canonical["final_selected"]
+            or canonical["final_selected"] != len(selected)
+        ):
+            raise ValueError("Saved membership reconciliation is internally inconsistent.")
+        return {**canonical, "source": "saved_membership_reconciliation"}
+    return {
+        "standard_threshold": sum(
+            row.get("mandatory_critical_coverage") is not True for row in selected
+        ),
+        "coverage_guardrail": sum(
+            row.get("mandatory_critical_coverage") is True for row in selected
+        ),
+        "post_selection_removals": None,
+        "final_selected": len(selected),
+        "source": "frozen_selected_rows_legacy_fallback",
+    }
 
 
 def comparison_reason(row):
@@ -170,9 +210,18 @@ def md(value):
 def bundle(directory):
     directory = Path(directory)
     if not (directory / "manifest.json").exists():
+        attempt_path = directory.parent / "attempt.json"
+        receipt_path = directory.parent / "receipt.json"
+        restoration_path = directory.parent / "restoration.json"
+        attempt = load(attempt_path) if attempt_path.exists() else {}
+        receipt = load(receipt_path) if receipt_path.exists() else {}
         return {
             "manifest": {"schema_version": 1, "complete": False},
-            "summary": {"status": "unavailable_or_failed"},
+            "summary": {
+                "status": attempt.get("status") or "unavailable_or_failed",
+                "project_id": attempt.get("project_id") or receipt.get("project_id"),
+                "run_id": receipt.get("run_id"),
+            },
             "selected": [],
             "near_miss": [],
             "changes": [],
@@ -181,15 +230,28 @@ def bundle(directory):
             "excluded": [],
             "assessed": [],
             "coverage_gaps": [],
+            "restoration": (
+                load(restoration_path)
+                if restoration_path.exists()
+                else {"status": "unverified_legacy"}
+            ),
         }
     manifest = load(directory / "manifest.json")
     if manifest.get("schema_version") != 1:
         raise ValueError("Unsupported CLI bundle version.")
+    integrity_failures = []
     for name, digest in manifest.get("files", {}).items():
         if Path(name).name != name or not re.fullmatch(r"[a-zA-Z0-9_.-]+", name):
             raise ValueError("Unsafe evidence artifact name.")
-        if hashlib.sha256((directory / name).read_bytes()).hexdigest() != digest:
-            raise ValueError("Evidence artifact integrity mismatch.")
+        artifact = directory / name
+        if not artifact.is_file():
+            integrity_failures.append(f"missing:{name}")
+        elif hashlib.sha256(artifact.read_bytes()).hexdigest() != digest:
+            integrity_failures.append(f"checksum:{name}")
+    if integrity_failures:
+        raise ValueError(
+            "Evidence artifact integrity failures: " + ", ".join(integrity_failures)
+        )
     required = {
         "summary.json",
         "selected-tests.json",
@@ -292,14 +354,20 @@ def model(a, b, changes, build, frontend=None, *, sample=False, execution=None):
     if len(project_ids) > 1:
         raise ValueError("Demo report project mismatch.")
     project_id = next(iter(project_ids), "90e48503-115d-4b34-be95-9f2f1b62767d")
+    project_names = {
+        value.get("summary", {}).get("project_name")
+        for value in supplied
+        if value.get("summary", {}).get("project_name")
+    }
+    if len(project_names) > 1:
+        raise ValueError("Demo report project-name mismatch.")
+    project_name = next(iter(project_names), KNOWN_PROJECT_NAMES.get(project_id))
+    if not project_name:
+        project_name = "Project " + project_id
     result = {
         "schema_version": 1,
         "sample": sample,
-        "project_name": (
-            "Continuous Resiliance"
-            if project_id == "90e48503-115d-4b34-be95-9f2f1b62767d"
-            else "Local banking selection demo"
-        ),
+        "project_name": project_name,
         "project_id": project_id,
         "changes": changes,
         "build": build,
@@ -315,7 +383,7 @@ def model(a, b, changes, build, frontend=None, *, sample=False, execution=None):
         result["attribution"] = (
             "This A execution does not submit or schedule B; its report is complete independently."
             if execution == "A"
-            else "Attribution uses this B run's saved frozen comparison only."
+            else "This B report uses a frozen comparison only when one was saved; unavailable means no causal comparison is claimed."
         )
     for label, value, expected in entries:
         summary = value["summary"]
@@ -372,16 +440,17 @@ def model(a, b, changes, build, frontend=None, *, sample=False, execution=None):
                 "complete_population": probability_summary(value["assessed"]),
                 "selected": probability_summary(value["selected"]),
             },
-            "membership": {
-                "standard_threshold": sum(
-                    row.get("mandatory_critical_coverage") is not True
-                    for row in value["selected"]
-                ),
-                "coverage_guardrail": sum(
-                    row.get("mandatory_critical_coverage") is True
-                    for row in value["selected"]
-                ),
-            },
+            "membership": (
+                membership_counts(summary, value["selected"])
+                if value["manifest"].get("complete") is True
+                else {
+                    "standard_threshold": None,
+                    "coverage_guardrail": None,
+                    "post_selection_removals": None,
+                    "final_selected": None,
+                    "source": "unavailable_in_incomplete_export",
+                }
+            ),
             "selection_metrics": {
                 "semantics_version": (summary.get("business_metrics") or {}).get("metric_semantics_version"),
                 "mapped_risk_coverage": (summary.get("business_metrics") or {}).get("mapped_risk_coverage"),
@@ -573,7 +642,11 @@ def render(result, output):
         ),
         (
             "Risks without selected tests",
-            lambda r: len(r["selection_metrics"].get("coverage_gaps") or []),
+            lambda r: (
+                len(r["selection_metrics"]["coverage_gaps"])
+                if isinstance(r["selection_metrics"].get("coverage_gaps"), list)
+                else "Unavailable"
+            ),
         ),
         (
             "Selection breadth (tau)",
@@ -656,22 +729,44 @@ def render(result, output):
             "",
             f"Backend outcome: **{md(contribution.get('outcome'))}** · Comparison: **{md(contribution.get('comparison_status'))}**",
             "",
-            "| Backend field | Value |",
-            "|---|---|",
         ]
     )
     counts = contribution.get("counts") or {}
     rf_counts = contribution.get("rf_counts") or {}
-    for key in (
-        "eligible_tests",
-        "baseline_selected",
-        "actual_selected",
-        "added",
-        "removed",
-    ):
-        lines.append(f"| {COUNT_LABELS[key]} | {md(counts.get(key))} |")
-    for key, label in RF_COUNT_LABELS.items():
-        lines.append(f"| {label} | {md(rf_counts.get(key))} |")
+    comparison_complete = contribution.get("comparison_status") == "complete"
+    if comparison_complete:
+        lines.extend(["| Backend field | Value |", "|---|---|"])
+        for key in (
+            "eligible_tests",
+            "baseline_selected",
+            "actual_selected",
+            "added",
+            "removed",
+        ):
+            lines.append(f"| {COUNT_LABELS[key]} | {md(counts.get(key))} |")
+        for key, label in RF_COUNT_LABELS.items():
+            lines.append(f"| {label} | {md(rf_counts.get(key))} |")
+        lines.extend(
+            [
+                "",
+                "Both frozen assessments use the same saved inputs. Only near-miss influence changes.",
+                "",
+                "RF effect categories are based on frozen probability, threshold, membership and guardrail decisions. Legacy candidate promotions are separate diagnostics and do not define model influence.",
+                "",
+                "<details><summary>Legacy candidate-promotion diagnostics</summary>",
+                "",
+                *[
+                    f"- {label}: {md(counts.get(key))}"
+                    for key, label in LEGACY_PROMOTION_LABELS.items()
+                ],
+                "",
+                "</details>",
+            ]
+        )
+    else:
+        lines.append(
+            "No frozen counterfactual is available for this execution; no without/with influence comparison is rendered."
+        )
     lines.extend(
         [
             "",
@@ -680,16 +775,6 @@ def render(result, output):
             ),
             "",
             result["attribution"],
-            "",
-            "Both frozen assessments use the same saved inputs. Only near-miss influence changes.",
-            "",
-            "RF effect categories are based on frozen probability, threshold, membership and guardrail decisions. Legacy candidate promotions are separate diagnostics and do not define model influence.",
-            "",
-            "<details><summary>Legacy candidate-promotion diagnostics</summary>",
-            "",
-            *[f"- {label}: {md(counts.get(key))}" for key, label in LEGACY_PROMOTION_LABELS.items()],
-            "",
-            "</details>",
             "",
             "## Evidence limitations",
             "",
@@ -755,11 +840,22 @@ def render(result, output):
             + "</tbody></table>"
         )
 
+    multiple_runs = len(runs) > 1
     comparison = table(
         [
             "",
             *(
-                label + " · " + ("without near-miss influence" if label == "A" else "with near-miss influence")
+                (
+                    label
+                    + " · "
+                    + (
+                        "without near-miss influence"
+                        if label == "A"
+                        else "with near-miss influence"
+                    )
+                    if multiple_runs
+                    else "Execution " + label
+                )
                 for label in runs
             ),
         ],
@@ -905,24 +1001,27 @@ def render(result, output):
         )
         + "</p>"
     )
-    html += table(
-        ["Backend field", "Value"],
-        [
-            [COUNT_LABELS[key], counts.get(key)]
-            for key in (
-                "eligible_tests",
-                "baseline_selected",
-                "actual_selected",
-                "added",
-                "removed",
-            )
-        ]
-        + [[label, rf_counts.get(key)] for key, label in RF_COUNT_LABELS.items()],
-    )
-    html += "<details><summary>Legacy candidate-promotion diagnostics</summary>" + table(
-        ["Diagnostic", "Value"],
-        [[label, counts.get(key)] for key, label in LEGACY_PROMOTION_LABELS.items()],
-    ) + "</details>"
+    if comparison_complete:
+        html += table(
+            ["Backend field", "Value"],
+            [
+                [COUNT_LABELS[key], counts.get(key)]
+                for key in (
+                    "eligible_tests",
+                    "baseline_selected",
+                    "actual_selected",
+                    "added",
+                    "removed",
+                )
+            ]
+            + [[label, rf_counts.get(key)] for key, label in RF_COUNT_LABELS.items()],
+        )
+        html += "<details><summary>Legacy candidate-promotion diagnostics</summary>" + table(
+            ["Diagnostic", "Value"],
+            [[label, counts.get(key)] for key, label in LEGACY_PROMOTION_LABELS.items()],
+        ) + "</details>"
+    else:
+        html += "<p>No frozen counterfactual is available for this execution; no without/with influence comparison is rendered.</p>"
     if membership_rows:
         html += "<h3>Added and removed tests</h3>"
         html += table(

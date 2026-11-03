@@ -32,6 +32,7 @@ def validate_reference(root, run, *, tooling_sha, cli_sha, wheel_sha):
         session["tooling_sha"] == tooling_sha and session["cli_source_sha"] == cli_sha
     )
     assert session["wheel_sha256"] == wheel_sha
+    invalid_files = []
     for name, digest in session["files"].items():
         path = PurePosixPath(name)
         assert (
@@ -39,7 +40,14 @@ def validate_reference(root, run, *, tooling_sha, cli_sha, wheel_sha):
             and not path.is_absolute()
             and ".." not in path.parts
         )
-        assert hashlib.sha256((root / name).read_bytes()).hexdigest() == digest
+        target = root / name
+        if not target.is_file():
+            invalid_files.append(f"missing:{name}")
+        elif hashlib.sha256(target.read_bytes()).hexdigest() != digest:
+            invalid_files.append(f"checksum:{name}")
+    assert not invalid_files, "Recovered artifact integrity failures: " + ", ".join(
+        invalid_files
+    )
     assert {
         "source-build/changes.json",
         "source-build/changed-files.json",
