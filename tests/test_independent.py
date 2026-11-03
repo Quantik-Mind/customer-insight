@@ -87,6 +87,7 @@ def test_b_has_own_report_and_restoration_failure_is_prominent(tmp_path):
 
 
 def reference(tmp_path, monkeypatch):
+    monkeypatch.setenv("QMIND_PROJECT_ID", pipeline.PROJECT)
     fixture = tmp_path / "fixture"
     generated = generate(fixture)
     source = tmp_path / "source"

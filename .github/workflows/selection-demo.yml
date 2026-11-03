@@ -13,13 +13,16 @@ on:
       frontend_url: {type: string, default: ''}
       api_url: {type: string, required: true}
       build_mode: {type: string, default: real}
+      project_id: {type: string, required: true}
+      tau: {type: string, required: true}
+      provider: {type: string, required: true}
     secrets:
       QMIND_API_KEY: {required: true}
       QMIND_INFLUENCE_API_KEY: {required: true}
       DEMO_READ_TOKEN: {required: true}
 permissions: {contents: read, actions: read}
 concurrency:
-  group: qmind-project-90e48503-115d-4b34-be95-9f2f1b62767d
+  group: qmind-project-${{ inputs.project_id }}
   cancel-in-progress: false
   queue: max
 jobs:
@@ -69,6 +72,7 @@ jobs:
           CLI: ${{ inputs.cli_source_sha }}
           WHEEL: ${{ inputs.wheel_sha256 }}
           GITHUB_TOKEN: ${{ github.token }}
+          QMIND_PROJECT_ID: ${{ inputs.project_id }}
         run: |
           if [ "$EXECUTION" = B ]; then
             python -m demo.cross_run --a-run-id "$A_RUN" --output ../source-build/a-reference --tooling-sha "$TOOLING" --cli-sha "$CLI" --wheel-sha "$WHEEL"
@@ -149,14 +153,16 @@ jobs:
           QMIND_API_KEY: ${{ secrets.QMIND_API_KEY }}
           QMIND_INFLUENCE_API_KEY: ${{ secrets.QMIND_INFLUENCE_API_KEY }}
           QMIND_API_URL: ${{ inputs.api_url }}
-          QMIND_PROJECT_ID: 90e48503-115d-4b34-be95-9f2f1b62767d
+          QMIND_PROJECT_ID: ${{ inputs.project_id }}
           QUANTIKMIND_TELEMETRY_DISABLED: '1'
           QMIND_CLI_SOURCE_SHA: ${{ inputs.cli_source_sha }}
           QMIND_TOOLING_SHA: ${{ inputs.tooling_sha }}
           QMIND_CLI_SHA256: ${{ inputs.wheel_sha256 }}
+          QMIND_SELECTION_TAU: ${{ inputs.tau }}
+          QMIND_EXPECTED_PROVIDER: ${{ inputs.provider }}
         run: |
           if [ "$EXECUTION" = A ]; then MODE=off; else MODE=on; fi
-          python -m demo.pipeline --mode "$MODE" --files source-build/changed-files.json --output execution
+          python -m demo.pipeline --mode "$MODE" --files source-build/changed-files.json --output execution --tau "$QMIND_SELECTION_TAU" --provider "$QMIND_EXPECTED_PROVIDER"
       - name: Independent report; B additionally generates paired report
         if: always()
         env:
@@ -177,6 +183,7 @@ jobs:
           TOOLING: ${{ inputs.tooling_sha }}
           CLI: ${{ inputs.cli_source_sha }}
           WHEEL: ${{ inputs.wheel_sha256 }}
+          QMIND_PROJECT_ID: ${{ inputs.project_id }}
         run: python -m demo.session --source source-build --execution execution --report report --output publication --label "$EXECUTION" --tooling-sha "$TOOLING" --cli-sha "$CLI" --wheel-sha "$WHEEL"
       - if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

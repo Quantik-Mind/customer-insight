@@ -9,7 +9,10 @@ from pathlib import Path
 import subprocess
 import sys
 
-PROJECT = "90e48503-115d-4b34-be95-9f2f1b62767d"
+HOSTED_PROJECT = "90e48503-115d-4b34-be95-9f2f1b62767d"
+# An explicitly supplied project always wins.  The hosted workflow passes this
+# as a required input; the legacy value remains only for old local fixtures.
+PROJECT = os.environ.get("QMIND_PROJECT_ID", "").strip() or HOSTED_PROJECT
 
 
 def run_cli(arguments, *, output=None):
@@ -29,7 +32,7 @@ def run_cli(arguments, *, output=None):
     return json.loads(result.stdout) if result.stdout else None
 
 
-def execute(mode, files, output, *, qmind=run_cli):
+def execute(mode, files, output, *, tau=None, provider=None, qmind=run_cli):
     output.mkdir(parents=True, exist_ok=True)
     failure = {
         "schema_version": 1,
@@ -38,6 +41,7 @@ def execute(mode, files, output, *, qmind=run_cli):
         "status": "started",
         "started_at": datetime.now(timezone.utc).isoformat(),
         "changed_files_sha256": hashlib.sha256(files.read_bytes()).hexdigest(),
+        "expected_provider": provider,
     }
     failure["provenance"] = {
         key: os.environ.get(key)
@@ -141,8 +145,7 @@ def execute(mode, files, output, *, qmind=run_cli):
         state = json.loads(control_state.read_text())
         state["selection_started"] = True
         control_state.write_text(json.dumps(state, indent=2), encoding="utf-8")
-        qmind(
-            [
+        subset_arguments = [
                 "subset",
                 "--changed-files-file",
                 str(files.resolve()),
@@ -154,7 +157,12 @@ def execute(mode, files, output, *, qmind=run_cli):
                 str(receipt.resolve()),
                 "--expected-influence",
                 mode,
-            ],
+            ]
+        if tau is not None:
+            subset_arguments.extend(["--tau", str(tau)])
+        failure["requested_tau"] = tau
+        qmind(
+            subset_arguments,
             output=output / "completion.json",
         )
         run_id = json.loads(receipt.read_text())["run_id"]
@@ -165,11 +173,26 @@ def execute(mode, files, output, *, qmind=run_cli):
                 run_id,
                 "--output-dir",
                 str((output / "bundle").resolve()),
+                "--timeout-seconds",
+                "600",
                 "--expected-influence",
                 mode,
             ],
             output=output / "export.json",
         )
+        if provider:
+            summary_path = output / "bundle" / "summary.json"
+            summary = json.loads(summary_path.read_text(encoding="utf-8"))
+            observed_provider = (
+                ((summary.get("selection_context") or {}).get("provenance") or {}).get(
+                    "provider"
+                )
+            )
+            if observed_provider != provider:
+                raise RuntimeError(
+                    "Saved selection provider does not match the required workflow provider."
+                )
+            failure["observed_provider"] = observed_provider
         manifest_path = output / "bundle" / "manifest.json"
         if manifest_path.exists():
             manifest = json.loads(manifest_path.read_text())
@@ -228,6 +251,8 @@ def main():
     parser.add_argument("--mode", choices=["off", "on"], required=True)
     parser.add_argument("--files", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--tau", type=float)
+    parser.add_argument("--provider", choices=["prometheus", "dynatrace"], required=True)
     args = parser.parse_args()
 
     # init emits human-readable output; use no JSON parsing for this one local setup call.
@@ -243,7 +268,16 @@ def main():
             return None
         return run_cli(arguments, output=output)
 
-    execute(args.mode, args.files.resolve(), args.output.resolve(), qmind=invoke)
+    if args.tau is not None and (not 0.05 <= args.tau <= 0.95):
+        parser.error("--tau must be between 0.05 and 0.95")
+    execute(
+        args.mode,
+        args.files.resolve(),
+        args.output.resolve(),
+        tau=args.tau,
+        provider=args.provider,
+        qmind=invoke,
+    )
 
 
 if __name__ == "__main__":

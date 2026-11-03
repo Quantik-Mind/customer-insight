@@ -134,8 +134,12 @@ def test_pipeline_one_submission_read_only_preflight_and_empty_guard(
             receipt.write_text('{"run_id":"11111111-1111-4111-8111-111111111111"}')
         return {}
 
-    pipeline.execute("on", files, tmp_path / "out", qmind=fake)
+    pipeline.execute("on", files, tmp_path / "out", tau=0.30, qmind=fake)
     assert sum(call[0] == "subset" for call in calls) == 1
+    subset_call = next(call for call in calls if call[0] == "subset")
+    assert subset_call[subset_call.index("--tau") + 1] == "0.3"
+    export_call = next(call for call in calls if call[:2] == ["runs", "export"])
+    assert export_call[export_call.index("--timeout-seconds") + 1] == "600"
     assert any(call[:3] == ["near-miss", "influence", "restore"] for call in calls)
     assert all("evaluate" not in call for call in calls)
     files.write_text("[]")
@@ -158,7 +162,7 @@ def test_offline_report_preserves_backend_zero_null_and_escapes(tmp_path):
     html = (tmp_path / "escaped/report.html").read_text()
     assert "<script>" not in html and "&lt;script&gt;" in html
     assert "SYNTHETIC SAMPLE" in html and "<script src" not in html
-    assert "Tests were recommended, not executed" in html
+    assert "Tests were selected, not executed" in html
     assert report.scrub({"api_key": "hidden", "reason": "qm_live_sensitive"}) == {
         "reason": "[REDACTED]"
     }
@@ -206,6 +210,10 @@ def test_publication_templates_and_workflow_contracts():
     )
     trigger = workflow.get("on", workflow.get(True))
     assert "workflow_call" in trigger
+    inputs = trigger["workflow_call"]["inputs"]
+    assert inputs["project_id"]["required"] is True
+    assert inputs["tau"]["required"] is True
+    assert inputs["provider"]["required"] is True
     assert workflow["permissions"] == {"contents": "read", "actions": "read"}
     assert workflow["concurrency"]["cancel-in-progress"] is False
     assert workflow["concurrency"]["queue"] == "max"
@@ -213,6 +221,11 @@ def test_publication_templates_and_workflow_contracts():
     assert "qm-demo-off" in workflow["jobs"]["selection"]["environment"]["name"]
     assert "qm-demo-on" in workflow["jobs"]["selection"]["environment"]["name"]
     assert workflow["jobs"]["selection"]["needs"] == "build"
+    selection_script = "\n".join(
+        step.get("run", "") for step in workflow["jobs"]["selection"]["steps"]
+    )
+    assert '--tau "$QMIND_SELECTION_TAU"' in selection_script
+    assert '--provider "$QMIND_EXPECTED_PROVIDER"' in selection_script
     for job in workflow["jobs"].values():
         for step in job.get("steps", []):
             if "uses" in step:

@@ -6,7 +6,7 @@ import json
 import os
 from pathlib import Path
 import shutil
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from .report import bundle
 
@@ -68,11 +68,15 @@ def package(
         )
         return
     plan = json.loads((source / "changes.json").read_text())
+    project_id = os.environ.get("QMIND_PROJECT_ID", "").strip()
+    if not project_id:
+        raise ValueError("QMIND_PROJECT_ID is required when sealing a demo execution")
+    UUID(project_id)
     session = {
         "schema_version": 2,
         "execution": label,
         "session_id": str(uuid4()),
-        "project_id": "90e48503-115d-4b34-be95-9f2f1b62767d",
+        "project_id": project_id,
         "repository": "Quantik-Mind/banking-app",
         "workflow_run_id": os.environ.get("GITHUB_RUN_ID", "local-fixture"),
         "head": plan["head"],

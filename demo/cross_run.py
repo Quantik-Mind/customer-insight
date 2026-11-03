@@ -15,7 +15,7 @@ import zipfile
 from .report import bundle
 
 REPOSITORY = "Quantik-Mind/banking-app"
-PROJECT = "90e48503-115d-4b34-be95-9f2f1b62767d"
+PROJECT = os.environ.get("QMIND_PROJECT_ID", "").strip() or "90e48503-115d-4b34-be95-9f2f1b62767d"
 
 
 def validate_reference(root, run, *, tooling_sha, cli_sha, wheel_sha):

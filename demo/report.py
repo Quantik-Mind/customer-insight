@@ -4,8 +4,10 @@ import argparse
 import hashlib
 from html import escape
 import json
+import os
 from pathlib import Path
 import re
+import statistics
 from urllib.parse import urlsplit
 from uuid import UUID
 
@@ -43,6 +45,55 @@ def load(path):
     return json.loads(Path(path).read_text(encoding="utf-8"))
 
 
+def probability_summary(rows):
+    values = sorted(
+        float(row["informative_probability"])
+        for row in rows
+        if isinstance(row.get("informative_probability"), (int, float))
+    )
+    if not values:
+        return {"count": 0, "minimum": None, "median": None, "maximum": None, "bins": []}
+    bounds = ((0.0, 0.1), (0.1, 0.2), (0.2, 0.3), (0.3, 0.4),
+              (0.4, 0.5), (0.5, 0.6), (0.6, 0.7), (0.7, 0.8),
+              (0.8, 0.9), (0.9, 1.0000000001))
+    return {
+        "count": len(values),
+        "minimum": values[0],
+        "median": statistics.median(values),
+        "maximum": values[-1],
+        "bins": [
+            {"from": low, "to": min(high, 1.0), "count": sum(low <= v < high for v in values)}
+            for low, high in bounds
+        ],
+    }
+
+
+def changed_probability(row):
+    off, on = row.get("probability_off"), row.get("probability_on")
+    return isinstance(off, (int, float)) and isinstance(on, (int, float)) and off != on
+
+
+def percentage(value):
+    return "Unavailable" if not isinstance(value, (int, float)) else f"{value * 100:.2f}%"
+
+
+def comparison_reason(row):
+    reason = row.get("selection_change_reason")
+    if reason == "removed_adaptive_threshold_increased":
+        return "Removed because the adaptive threshold increased; the saved individual probability did not change and no coverage guardrail retained the test."
+    if reason in {"added_probability_increased", "added_above_threshold"}:
+        return "Added because its saved estimated informativeness increased enough to meet the adaptive threshold."
+    if reason in {"added_coverage_guardrail", "removed_coverage_policy"}:
+        return "Selection changed through the saved mapped-risk coverage policy."
+    if reason:
+        return str(reason).replace("_", " ").capitalize() + "."
+    if row.get("baseline_selected") is False and row.get("selected") is True:
+        return "Added with near-miss influence; saved evidence does not isolate a more specific cause."
+    if row.get("baseline_selected") is True and row.get("selected") is False:
+        return "Removed with near-miss influence; saved evidence does not isolate a more specific cause."
+    return "Selection did not change."
+
+
 def scrub(value):
     if isinstance(value, dict):
         return {
@@ -63,9 +114,10 @@ def scrub(value):
 
 def valid_base(url):
     parsed = urlsplit(url)
+    local = os.environ.get("QMIND_LOCAL_DEMO") == "1" and parsed.scheme == "http" and parsed.hostname in {"127.0.0.1", "localhost"}
     if (
         any(ord(character) <= 32 or ord(character) == 127 for character in url)
-        or parsed.scheme != "https"
+        or (parsed.scheme != "https" and not local)
         or not parsed.hostname
         or parsed.username
         or parsed.password
@@ -114,6 +166,9 @@ def bundle(directory):
             "changes": [],
             "observations": {},
             "focused_evidence": [],
+            "excluded": [],
+            "assessed": [],
+            "coverage_gaps": [],
         }
     manifest = load(directory / "manifest.json")
     if manifest.get("schema_version") != 1:
@@ -150,6 +205,19 @@ def bundle(directory):
         "selected_experiments"
     ):
         raise ValueError("Complete list disagrees with summary.")
+    modeled = [row for row in selected if row.get("assessment_status") == "estimated"]
+    if modeled:
+        if len(modeled) != len(selected) or any(
+            not isinstance(row.get("informative_probability"), (int, float))
+            for row in selected
+        ):
+            raise ValueError("Model-mode export contains missing probability assessments.")
+        expected = sorted(
+            selected,
+            key=lambda row: (-float(row["informative_probability"]), int(row["internal_test_id"])),
+        )
+        if [row.get("internal_test_id") for row in selected] != [row.get("internal_test_id") for row in expected]:
+            raise ValueError("Model-mode export is not in canonical probability order.")
     own_build = directory.parent / "build/build.json"
     if not own_build.exists():
         own_build = directory.parent.parent / "source-build/build.json"
@@ -157,6 +225,21 @@ def bundle(directory):
         "manifest": manifest,
         "summary": summary,
         "selected": selected,
+        "excluded": (
+            load(directory / "excluded-tests.json")
+            if (directory / "excluded-tests.json").exists()
+            else []
+        ),
+        "assessed": (
+            load(directory / "assessed-tests.json")
+            if (directory / "assessed-tests.json").exists()
+            else []
+        ),
+        "coverage_gaps": (
+            load(directory / "coverage-gaps.json")
+            if (directory / "coverage-gaps.json").exists()
+            else []
+        ),
         "build_provenance": load(own_build) if own_build.exists() else None,
         "near_miss": (
             load(directory / "near-miss.json")
@@ -188,15 +271,28 @@ def bundle(directory):
 
 def model(a, b, changes, build, frontend=None, *, sample=False, execution=None):
     frontend = valid_base(frontend) if frontend else None
+    supplied = [value for value in (a, b) if value]
+    project_ids = {
+        value.get("summary", {}).get("project_id")
+        for value in supplied
+        if value.get("summary", {}).get("project_id")
+    }
+    if len(project_ids) > 1:
+        raise ValueError("Demo report project mismatch.")
+    project_id = next(iter(project_ids), "90e48503-115d-4b34-be95-9f2f1b62767d")
     result = {
         "schema_version": 1,
         "sample": sample,
-        "project_name": "Continuous Resiliance",
-        "project_id": "90e48503-115d-4b34-be95-9f2f1b62767d",
+        "project_name": (
+            "Continuous Resiliance"
+            if project_id == "90e48503-115d-4b34-be95-9f2f1b62767d"
+            else "Local banking selection demo"
+        ),
+        "project_id": project_id,
         "changes": changes,
         "build": build,
-        "boundary": "Tests were recommended, not executed. No deployment occurred. Banking library/workload are synthetic validation data. Image assembly does not establish startup or functional correctness. Test-count reduction is not measured time/cost savings or incident prevention.",
-        "attribution": "A/B are separate executions with changing observation times. Only B's backend-validated frozen influence-off comparison supplies causal attribution.",
+        "boundary": "Tests were selected, not executed. The demo intentionally ends at selection and reporting. Banking library/workload are synthetic validation data. Image assembly does not establish startup or functional correctness. Test-count reduction is measured; duration savings, when shown, are estimates from saved historical durations and are not measured pipeline wall-clock savings.",
+        "attribution": "A/B are separate executions with changing observation times. Only B's backend-validated frozen comparison without near-miss influence supplies causal attribution.",
         "runs": {},
         "limitations": [],
         "normalized_metric_units": NORMALIZED_METRIC_UNITS,
@@ -238,6 +334,59 @@ def model(a, b, changes, build, frontend=None, *, sample=False, execution=None):
             "count_reduction_pct": reduction,
             "mode_verified": explanation.get("influence_enabled") is expected,
             "provider": (context.get("provenance") or {}).get("provider"),
+            "model": {
+                "versions": sorted({row.get("model_version") for row in value["selected"] if row.get("model_version")}),
+                "all_selected_probabilities_available": bool(value["selected"]) and all(row.get("informative_probability") is not None for row in value["selected"]),
+                "first_rank": value["selected"][0].get("priority_rank") if value["selected"] else None,
+                "last_rank": value["selected"][-1].get("priority_rank") if value["selected"] else None,
+                "artifact_sha256": next(
+                    (row.get("artifact_sha256") for row in value["assessed"] if row.get("artifact_sha256")),
+                    ((summary.get("business_metrics") or {}).get("model_details") or {}).get("artifact_sha256"),
+                ),
+                "feature_contract": next(
+                    (row.get("feature_schema_version") for row in value["assessed"] if row.get("feature_schema_version")),
+                    ((summary.get("business_metrics") or {}).get("model_details") or {}).get("feature_schema_version"),
+                ),
+                "training_data_kind": next(
+                    (row.get("training_data_kind") for row in value["assessed"] if row.get("training_data_kind")),
+                    ((summary.get("business_metrics") or {}).get("model_details") or {}).get("training_data_kind"),
+                ),
+                "calibration_status": next(
+                    (row.get("calibration_status") for row in value["assessed"] if row.get("calibration_status")),
+                    None,
+                ),
+            },
+            "probability_distribution": {
+                "complete_population": probability_summary(value["assessed"]),
+                "selected": probability_summary(value["selected"]),
+            },
+            "membership": {
+                "standard_threshold": sum(
+                    row.get("mandatory_critical_coverage") is not True
+                    for row in value["selected"]
+                ),
+                "coverage_guardrail": sum(
+                    row.get("mandatory_critical_coverage") is True
+                    for row in value["selected"]
+                ),
+            },
+            "selection_metrics": {
+                "semantics_version": (summary.get("business_metrics") or {}).get("metric_semantics_version"),
+                "mapped_risk_coverage": (summary.get("business_metrics") or {}).get("mapped_risk_coverage"),
+                "critical_risk_coverage": (
+                    ((summary.get("business_metrics") or {}).get("mapped_risk_coverage") or {}).get("critical")
+                    or (summary.get("business_metrics") or {}).get("critical_risk_area_coverage")
+                ),
+                "overall_risk_coverage": (
+                    ((summary.get("business_metrics") or {}).get("mapped_risk_coverage") or {}).get("overall")
+                    or (summary.get("business_metrics") or {}).get("declared_behavior_coverage")
+                ),
+                "coverage_gaps": (summary.get("business_metrics") or {}).get("coverage_gaps"),
+                "membership_reconciliation": (summary.get("business_metrics") or {}).get("membership_reconciliation"),
+                "legacy_score_diagnostics": (summary.get("business_metrics") or {}).get("legacy_score_diagnostics"),
+                "selection_configuration": summary.get("selection_configuration")
+                or (summary.get("business_metrics") or {}).get("selection_configuration"),
+            },
         }
         if explanation.get("influence_enabled") is not expected:
             result["limitations"].append(
@@ -278,6 +427,40 @@ def model(a, b, changes, build, frontend=None, *, sample=False, execution=None):
         "counts": {},
         "outcome": "evidence_unavailable",
     }
+    comparison_rows = (b or a).get("near_miss", [])
+    result["near_miss_comparison"] = {
+        "tests": [dict(row, readable_reason=comparison_reason(row)) for row in comparison_rows],
+        "probability_changed": sum(changed_probability(row) for row in comparison_rows),
+        "probability_only": sum(
+            changed_probability(row)
+            and row.get("baseline_selected") == row.get("selected")
+            for row in comparison_rows
+        ),
+        "added": sum(
+            row.get("baseline_selected") is False and row.get("selected") is True
+            for row in comparison_rows
+        ),
+        "removed": sum(
+            row.get("baseline_selected") is True and row.get("selected") is False
+            for row in comparison_rows
+        ),
+    }
+    counts = result["contribution"].get("counts") or {}
+    if result["contribution"].get("comparison_status") == "complete":
+        baseline, added, removed, actual = (
+            counts.get("baseline_selected"), counts.get("added"),
+            counts.get("removed"), counts.get("actual_selected"),
+        )
+        if all(type(value) is int for value in (baseline, added, removed, actual)):
+            if baseline + added - removed != actual:
+                raise ValueError("Saved near-miss membership counts do not reconcile.")
+            result["near_miss_comparison"]["reconciliation"] = {
+                "without_influence": baseline,
+                "added": added,
+                "removed": removed,
+                "with_influence": actual,
+                "valid": True,
+            }
     provenance = (cb or ca).get("provenance") or {}
     result["data_scope"] = (
         (
@@ -317,9 +500,11 @@ def render(result, output):
     ]
     getters = [
         ("Status", lambda r: r["summary"].get("status")),
+        ("Run ID", lambda r: r["summary"].get("run_id")),
+        ("Decision time", lambda r: r["summary"].get("created_at") or r["summary"].get("completed_at")),
         (
             "Influence",
-            lambda r: {True: "ON", False: "OFF"}.get(
+            lambda r: {True: "With near-miss influence", False: "Without near-miss influence"}.get(
                 (r["summary"].get("near_miss_explanation") or {}).get(
                     "influence_enabled"
                 ),
@@ -333,7 +518,40 @@ def render(result, output):
             lambda r: f"{display(r['summary'].get('selected_experiments'))} / {display(r['summary'].get('total_experiments'))}",
         ),
         ("Test-count reduction (%)", lambda r: r["count_reduction_pct"]),
+        ("Selected by standard threshold", lambda r: r["membership"]["standard_threshold"]),
+        ("Additional mapped-risk guardrail inclusions", lambda r: r["membership"]["coverage_guardrail"]),
+        (
+            "Critical risk coverage",
+            lambda r: "{}/{}".format(
+                (r["selection_metrics"].get("critical_risk_coverage") or {}).get("covered_count", "Unavailable"),
+                (r["selection_metrics"].get("critical_risk_coverage") or {}).get("total_count", "Unavailable"),
+            ),
+        ),
+        (
+            "Overall risk coverage",
+            lambda r: "{}/{}".format(
+                (r["selection_metrics"].get("overall_risk_coverage") or {}).get("covered_count", "Unavailable"),
+                (r["selection_metrics"].get("overall_risk_coverage") or {}).get("total_count", "Unavailable"),
+            ),
+        ),
+        (
+            "Risks without selected tests",
+            lambda r: len(r["selection_metrics"].get("coverage_gaps") or []),
+        ),
+        (
+            "Selection breadth (tau)",
+            lambda r: (r["selection_metrics"].get("selection_configuration") or {}).get("effective_tau", "Unavailable"),
+        ),
+        (
+            "Minimum informativeness for standard selection",
+            lambda r: (r["selection_metrics"].get("membership_reconciliation") or {}).get("effective_threshold", "Unavailable"),
+        ),
         ("Complete selected export", lambda r: r["manifest"].get("complete")),
+        ("Model version", lambda r: ", ".join(r["model"]["versions"]) or "Unavailable"),
+        ("Feature contract", lambda r: r["model"].get("feature_contract") or "Unavailable"),
+        ("Model SHA-256", lambda r: r["model"].get("artifact_sha256") or "Unavailable"),
+        ("Training provenance", lambda r: r["model"].get("training_data_kind") or "Unavailable"),
+        ("All selected probabilities available", lambda r: r["model"]["all_selected_probabilities_available"]),
         (
             "Original influence restoration",
             lambda r: (r.get("restoration") or {}).get("status", "unverified_legacy"),
@@ -358,11 +576,46 @@ def render(result, output):
                 ]
             )
     contribution = result["contribution"]
+    for label, value in runs.items():
+        distribution = value["probability_distribution"]
+        coverage = value["selection_metrics"].get("mapped_risk_coverage") or {}
+        lines.extend(
+            [
+                "",
+                f"## Execution {label}: probability and mapped-risk summary",
+                "",
+                "Estimated informativeness is the model-estimated chance that a test provides new, relevant risk evidence. It is not failure probability.",
+                "",
+                "| Population | Count | Minimum | Median | Maximum |",
+                "|---|---:|---:|---:|---:|",
+            ]
+        )
+        for population in ("complete_population", "selected"):
+            values = distribution[population]
+            lines.append(
+                "| " + ("Complete assessed population" if population == "complete_population" else "Selected tests")
+                + f" | {values['count']} | {percentage(values['minimum'])} | {percentage(values['median'])} | {percentage(values['maximum'])} |"
+            )
+        lines.extend(
+            [
+                "",
+                "Coverage shows defined risks with at least one associated test selected. Tests have not necessarily run. This does not establish complete behavioral coverage or elimination of risk.",
+                "",
+                "| Severity | Covered | Defined | Gaps |",
+                "|---|---:|---:|---:|",
+            ]
+        )
+        for severity in ("critical", "high", "medium", "low", "unknown", "overall"):
+            metric = coverage.get(severity) or {}
+            defined = metric.get("total_count")
+            covered = metric.get("covered_count")
+            gaps = defined - covered if type(defined) is int and type(covered) is int else "Unavailable"
+            lines.append(f"| {severity.title()} | {display(covered)} | {display(defined)} | {display(gaps)} |")
     lines.extend(
         [
             "",
             "## Saved influence evidence within "
-            + ("B" if "B" in runs else "A (influence OFF)"),
+            + ("B" if "B" in runs else "A (near-miss influence disabled)"),
             "",
             f"Backend outcome: **{md(contribution.get('outcome'))}** · Comparison: **{md(contribution.get('comparison_status'))}**",
             "",
@@ -383,6 +636,12 @@ def render(result, output):
         "removed",
     ):
         lines.append(f"| {COUNT_LABELS[key]} | {md(counts.get(key))} |")
+    lines.append(
+        f"| Individual probabilities changed | {result['near_miss_comparison']['probability_changed']} |"
+    )
+    lines.append(
+        f"| Probability changed, selection unchanged | {result['near_miss_comparison']['probability_only']} |"
+    )
     lines.extend(
         [
             "",
@@ -392,12 +651,41 @@ def render(result, output):
             "",
             result["attribution"],
             "",
+            "Both frozen assessments use the same saved inputs. Only near-miss influence changes.",
+            "",
             "Zero direct additions is a valid result. Applied promotion and retention do not by themselves establish additional selection.",
             "",
             "## Evidence limitations",
             "",
         ]
     )
+    changed_rows = result["near_miss_comparison"]["tests"]
+    membership_rows = [
+        row for row in changed_rows
+        if row.get("baseline_selected") != row.get("selected")
+    ]
+    if membership_rows:
+        lines.extend(
+            [
+                "",
+                "### Added and removed tests",
+                "",
+                "| Test | Service | Without near-miss influence | With near-miss influence | Probability change | Thresholds | Explanation |",
+                "|---|---|---|---|---|---|---|",
+            ]
+        )
+        for row in membership_rows:
+            off_selected = "Selected" if row.get("baseline_selected") else "Not selected"
+            on_selected = "Selected" if row.get("selected") else "Not selected"
+            off, on = row.get("probability_off"), row.get("probability_on")
+            delta = percentage(on - off) if isinstance(off, (int, float)) and isinstance(on, (int, float)) else "Unavailable"
+            lines.append(
+                "| " + md(row.get("test_identifier") or row.get("test_id"))
+                + " | " + md(row.get("service") or row.get("saved_service"))
+                + f" | {off_selected} ({percentage(off)}) | {on_selected} ({percentage(on)})"
+                + f" | {delta} points | {percentage(row.get('threshold_off'))} → {percentage(row.get('threshold_on'))}"
+                + " | " + md(row.get("readable_reason")) + " |"
+            )
     lines.extend(
         ["- " + md(item) for item in result["limitations"]]
         or [
@@ -435,7 +723,7 @@ def render(result, output):
         [
             "",
             *(
-                label + " · influence " + ("OFF" if label == "A" else "ON")
+                label + " · " + ("without near-miss influence" if label == "A" else "with near-miss influence")
                 for label in runs
             ),
         ],
@@ -467,6 +755,9 @@ def render(result, output):
                 value["observations"],
             ),
             ("Focused sanitized selected evidence", value["focused_evidence"]),
+            ("Complete assessed population", value["assessed"]),
+            ("Complete unselected population", value["excluded"]),
+            ("Mapped risks without selected tests", value["coverage_gaps"]),
             ("CLI export integrity and completeness", value["manifest"]),
             ("Conditional original influence restoration", value.get("restoration")),
         ]
@@ -483,7 +774,7 @@ def render(result, output):
                 + escape(json.dumps(data, indent=2))
                 + "</pre></details>"
             )
-        fields = ["internal_test_id", "id", "service", "experiment_type", "origin"]
+        fields = ["priority_rank", "internal_test_id", "id", "service", "informative_probability", "risk_areas", "business_criticality", "selection_utility", "inclusion_rule", "mandatory_critical_coverage", "model_version"]
         sections.append(
             "<details><summary>Complete selected list · "
             + str(len(value["selected"]))
@@ -525,9 +816,43 @@ def render(result, output):
         + "</div>"
         + comparison
     )
+    for label, value in runs.items():
+        distribution = value["probability_distribution"]
+        coverage = value["selection_metrics"].get("mapped_risk_coverage") or {}
+        html += f"<h2>Execution {escape(label)}: probability and mapped-risk summary</h2>"
+        html += "<p>Estimated informativeness concerns new, relevant risk evidence; it is not failure probability.</p>"
+        html += table(
+            ["Population", "Count", "Minimum", "Median", "Maximum"],
+            [
+                [
+                    "Complete assessed population" if key == "complete_population" else "Selected tests",
+                    distribution[key]["count"], percentage(distribution[key]["minimum"]),
+                    percentage(distribution[key]["median"]), percentage(distribution[key]["maximum"]),
+                ]
+                for key in ("complete_population", "selected")
+            ],
+        )
+        html += "<p>Coverage shows defined risks with at least one associated test selected. Tests have not necessarily run. This does not establish complete behavioral coverage or elimination of risk.</p>"
+        html += table(
+            ["Severity", "Covered", "Defined", "Gaps"],
+            [
+                [
+                    severity.title(), (coverage.get(severity) or {}).get("covered_count"),
+                    (coverage.get(severity) or {}).get("total_count"),
+                    (
+                        (coverage.get(severity) or {}).get("total_count")
+                        - (coverage.get(severity) or {}).get("covered_count")
+                        if isinstance((coverage.get(severity) or {}).get("total_count"), int)
+                        and isinstance((coverage.get(severity) or {}).get("covered_count"), int)
+                        else "Unavailable"
+                    ),
+                ]
+                for severity in ("critical", "high", "medium", "low", "unknown", "overall")
+            ],
+        )
     html += (
         "<h2>Saved near-miss influence evidence within "
-        + ("B" if "B" in runs else "A (influence OFF)")
+        + ("B" if "B" in runs else "A (near-miss influence disabled)")
         + "</h2><p>"
         + escape(display(contribution.get("outcome")))
         + " · Comparison: "
@@ -556,10 +881,34 @@ def render(result, output):
                 "actual_selected",
                 "direct_addition",
                 "indirect_addition",
+                "added",
                 "removed",
             )
+        ]
+        + [
+            ["Individual probabilities changed", result["near_miss_comparison"]["probability_changed"]],
+            ["Probability changed, selection unchanged", result["near_miss_comparison"]["probability_only"]],
         ],
     )
+    if membership_rows:
+        html += "<h3>Added and removed tests</h3>"
+        html += table(
+            ["Test", "Service", "Without near-miss influence", "With near-miss influence", "Probability delta", "Thresholds", "Explanation"],
+            [
+                [
+                    row.get("test_identifier") or row.get("test_id"),
+                    row.get("service") or row.get("saved_service"),
+                    ("Selected" if row.get("baseline_selected") else "Not selected") + " · " + percentage(row.get("probability_off")),
+                    ("Selected" if row.get("selected") else "Not selected") + " · " + percentage(row.get("probability_on")),
+                    percentage(row.get("probability_on") - row.get("probability_off"))
+                    if isinstance(row.get("probability_on"), (int, float)) and isinstance(row.get("probability_off"), (int, float))
+                    else "Unavailable",
+                    percentage(row.get("threshold_off")) + " → " + percentage(row.get("threshold_on")),
+                    row.get("readable_reason"),
+                ]
+                for row in membership_rows
+            ],
+        )
     html += (
         "<p>"
         + escape(result["attribution"])

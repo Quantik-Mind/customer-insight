@@ -64,7 +64,13 @@ def stage(repo, head, service, target, *, local=False):
                 raise ValueError("Only regular source files may enter build context.")
             data = git(repo, "show", head + ":" + name)
         if name.endswith(".py"):
-            ast.parse(data, filename=name)
+            try:
+                ast.parse(data, filename=name)
+            except ValueError as exc:
+                # Python versions disagree on whether a NUL byte is a
+                # SyntaxError or ValueError.  Expose one stable validation
+                # contract to the hosted and local demo paths.
+                raise SyntaxError(str(exc)) from exc
         (target / Path(name).name).write_bytes(data)
         digests[name] = hashlib.sha256(data).hexdigest()
     dockerfile = (
